@@ -1,0 +1,72 @@
+# trackit local infrastructure
+#
+# Brings up the open-source services the app depends on. App services
+# (api, web) are NOT included yet — they land in later steps.
+#
+# Usage:
+#   docker compose up -d        # start in background
+#   docker compose ps           # see status (wait for "healthy")
+#   docker compose logs -f      # tail logs
+#   docker compose down         # stop, keep data
+#   docker compose down -v      # stop AND wipe data volumes (destructive)
+#
+# Reads credentials and ports from the root `.env` file.
+
+name: trackit
+
+services:
+  # ------------------------------------------------------------------
+  # PostgreSQL with TimescaleDB extension preloaded.
+  # Hosts: Better Auth tables, devices, location_event hypertable, etc.
+  # Image is open source (Apache 2.0 / PostgreSQL License).
+  # ------------------------------------------------------------------
+  postgres:
+    image: timescale/timescaledb:latest-pg17
+    container_name: trackit-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - trackit
+
+  # ------------------------------------------------------------------
+  # Tile38 — in-memory geospatial server (Redis protocol).
+  # Hosts: live "where is each device right now" state, geofences.
+  # Image is open source (MIT).
+  # ------------------------------------------------------------------
+  tile38:
+    image: tile38/tile38:latest
+    container_name: trackit-tile38
+    restart: unless-stopped
+    ports:
+      - "${TILE38_PORT:-9851}:9851"
+    volumes:
+      - tile38-data:/data
+    healthcheck:
+      test: ["CMD", "tile38-cli", "PING"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    networks:
+      - trackit
+
+volumes:
+  postgres-data:
+  tile38-data:
+
+networks:
+  trackit:
+    driver: bridge
