@@ -121,13 +121,20 @@ interface PendingCount {
   count: number
 }
 
+interface AppSidebarProps {
+  /** "desktop" — sticky 60-wide column hidden below lg.
+   *  "drawer"  — full-width inline content for the mobile menu drawer.
+   */
+  variant?: "desktop" | "drawer"
+}
+
 // Module-scoped so the entrance animation fires only on first mount per
 // tab session — not on every in-app navigation (which remounts AppShell
 // per-page).
 let hasMounted = false
 
-export function AppSidebar() {
-  const isFirstMount = !hasMounted
+export function AppSidebar({ variant = "desktop" }: AppSidebarProps) {
+  const isFirstMount = !hasMounted && variant === "desktop"
   if (isFirstMount) hasMounted = true
   const navigate = useNavigate()
   const location = useLocation()
@@ -193,7 +200,12 @@ export function AppSidebar() {
   return (
     <aside
       data-mount={isFirstMount ? "cascade" : undefined}
-      className="sticky top-0 hidden h-svh w-60 shrink-0 flex-col gap-4 border-r bg-sidebar text-sidebar-foreground lg:flex"
+      className={cn(
+        "flex flex-col gap-4 bg-sidebar text-sidebar-foreground",
+        variant === "desktop"
+          ? "sticky top-0 hidden h-svh w-60 shrink-0 border-r lg:flex"
+          : "h-full w-full"
+      )}
     >
       {/* Brand */}
       <div className="flex items-center gap-2.5 px-4 pt-4">

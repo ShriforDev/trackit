@@ -130,11 +130,7 @@ export function AppTopbar({ breadcrumbs }: AppTopbarProps) {
               </Button>
             </div>
             <div className="-mt-px flex-1 overflow-y-auto">
-              {/* Reuse the same sidebar content. The drawer wrapper handles
-                  positioning; the sidebar itself just renders normally. */}
-              <div className="lg:hidden">
-                <AppSidebar />
-              </div>
+              <AppSidebar variant="drawer" />
             </div>
           </div>
         </div>
