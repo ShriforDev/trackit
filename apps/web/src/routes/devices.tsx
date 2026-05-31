@@ -8,9 +8,12 @@ import {
   IconRouter,
 } from "@tabler/icons-react"
 
-import { AppFooter, AppHeader } from "@/components/layout/app-header"
+import { AppShell } from "@/components/layout/app-shell"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { EmptyState } from "@/components/ui/empty-state"
+import { PageHeader } from "@/components/ui/page-header"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
 import { api, ApiError } from "@/lib/api"
 import { useActiveOrganization, useSession } from "@/lib/auth-client"
@@ -88,27 +91,22 @@ export function DevicesPage() {
   const myRole = myMembership?.role ?? "member"
   const isAdmin = myRole === "owner" || myRole === "admin"
 
-  return (
-    <div className="flex min-h-svh flex-col">
-      <AppHeader />
+  const totalCount = devices?.length ?? 0
+  const phoneCount = devices?.filter((d) => d.kind === "phone").length ?? 0
+  const iotCount = totalCount - phoneCount
 
-      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-6 py-10">
-        <section className="flex flex-wrap items-end justify-between gap-3">
-          <div className="flex flex-col gap-1.5">
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-              <IconDeviceMobile className="size-3.5" />
-              Devices
-            </span>
-            <h1 className="font-heading text-2xl font-medium leading-tight tracking-tight">
-              {activeOrg?.name ?? "Your organization"}&apos;s devices
-            </h1>
-            <p className="max-w-2xl text-xs leading-relaxed text-muted-foreground">
-              {isAdmin
-                ? "You see every active device in the organization."
-                : "You see devices you own and any that have been shared with you."}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
+  return (
+    <AppShell breadcrumbs={[{ label: "Devices" }]}>
+      <PageHeader
+        eyebrow="Fleet"
+        title={`${activeOrg?.name ?? "Your organization"}'s devices`}
+        description={
+          isAdmin
+            ? "You see every active device in the organization."
+            : "You see devices you own and any that have been shared with you."
+        }
+        actions={
+          <>
             <Button
               variant="ghost"
               size="sm"
@@ -127,22 +125,45 @@ export function DevicesPage() {
               <IconPlus data-icon="inline-start" />
               Register a device
             </Button>
-          </div>
-        </section>
+          </>
+        }
+        meta={
+          devices ? (
+            <>
+              <CountChip label="Total" value={totalCount} />
+              <CountChip label="Phones" value={phoneCount} />
+              <CountChip label="IoT" value={iotCount} />
+            </>
+          ) : null
+        }
+      />
 
-        {error ? (
-          <div className="flex items-center gap-2 border border-destructive/40 bg-destructive/5 px-4 py-3 text-xs text-destructive">
-            <IconAlertCircle className="size-4 shrink-0" />
-            <span>{error}</span>
-          </div>
-        ) : null}
+      {error ? (
+        <div className="mt-6 flex items-center gap-2 border border-destructive/40 bg-destructive/5 px-4 py-3 text-xs text-destructive">
+          <IconAlertCircle className="size-4 shrink-0" />
+          <span>{error}</span>
+        </div>
+      ) : null}
 
+      <div className="mt-6">
         {devices === null && !error ? (
-          <div className="flex h-40 items-center justify-center text-muted-foreground">
-            <Spinner />
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {[0, 1, 2].map((i) => (
+              <Skeleton key={i} className="h-[148px]" />
+            ))}
           </div>
         ) : devices && devices.length === 0 ? (
-          <EmptyState />
+          <EmptyState
+            icon={<IconDeviceMobile className="size-6" />}
+            title="No devices yet"
+            description="Register your first device — start with the phone you're using right now, then add more as your team grows."
+            action={
+              <Button render={<Link to="/devices/new" />} size="sm">
+                <IconPlus data-icon="inline-start" />
+                Register a device
+              </Button>
+            }
+          />
         ) : devices ? (
           <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {devices.map((d) => (
@@ -150,10 +171,21 @@ export function DevicesPage() {
             ))}
           </ul>
         ) : null}
-      </main>
+      </div>
+    </AppShell>
+  )
+}
 
-      <AppFooter />
-    </div>
+function CountChip({ label, value }: { label: string; value: number }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 border bg-background px-2 py-1 ring-1 ring-foreground/5">
+      <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+        {label}
+      </span>
+      <span className="font-mono text-xs font-medium tabular-nums">
+        {value}
+      </span>
+    </span>
   )
 }
 
@@ -231,26 +263,5 @@ function DeviceCard({ device }: { device: Device }) {
         </dl>
       </Link>
     </li>
-  )
-}
-
-function EmptyState() {
-  return (
-    <div className="flex flex-col items-center justify-center gap-4 border border-dashed bg-muted/20 px-6 py-16 text-center">
-      <span className="grid size-12 place-items-center border bg-background text-foreground">
-        <IconDeviceMobile className="size-6" />
-      </span>
-      <div className="flex flex-col gap-1">
-        <h2 className="text-sm font-medium">No devices yet</h2>
-        <p className="max-w-sm text-xs leading-relaxed text-muted-foreground">
-          Register your first device — start with the phone you&apos;re using
-          right now, then add more as your team grows.
-        </p>
-      </div>
-      <Button render={<Link to="/devices/new" />} size="sm">
-        <IconPlus data-icon="inline-start" />
-        Register a device
-      </Button>
-    </div>
   )
 }

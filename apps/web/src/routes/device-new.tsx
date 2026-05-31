@@ -2,13 +2,12 @@ import { useEffect, useMemo, useState } from "react"
 import { Link, useNavigate } from "react-router"
 import { toast } from "sonner"
 import {
-  IconArrowLeft,
   IconCheck,
   IconDeviceMobile,
   IconRouter,
 } from "@tabler/icons-react"
 
-import { AppFooter, AppHeader } from "@/components/layout/app-header"
+import { AppShell } from "@/components/layout/app-shell"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -152,20 +151,17 @@ export function DeviceNewPage() {
   }
 
   return (
-    <div className="flex min-h-svh flex-col">
-      <AppHeader />
-
-      <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-8 px-6 py-10">
+    <AppShell
+      breadcrumbs={[
+        { label: "Devices", to: "/devices" },
+        { label: "Register" },
+      ]}
+    >
+      <div className="mx-auto flex w-full max-w-4xl flex-col gap-8">
         <div className="flex flex-col gap-2">
-          <Button
-            render={<Link to="/devices" />}
-            variant="ghost"
-            size="sm"
-            className="-ml-2 w-fit"
-          >
-            <IconArrowLeft data-icon="inline-start" />
-            Back to devices
-          </Button>
+          <span className="font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+            New device
+          </span>
           <h1 className="font-heading text-2xl font-medium leading-tight tracking-tight">
             Register a device
           </h1>
@@ -362,10 +358,8 @@ export function DeviceNewPage() {
             </details>
           </aside>
         </form>
-      </main>
-
-      <AppFooter />
-    </div>
+      </div>
+    </AppShell>
   )
 }
 

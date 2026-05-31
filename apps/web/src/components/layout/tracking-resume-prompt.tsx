@@ -73,7 +73,7 @@ export function TrackingResumePrompt() {
   }
 
   return (
-    <div className="sticky top-[3.25rem] z-10 flex flex-wrap items-center justify-between gap-2 border-b border-emerald-200/60 bg-emerald-50 px-6 py-2.5 text-xs dark:border-emerald-900/40 dark:bg-emerald-950/30">
+    <div className="sticky top-12 z-20 flex flex-wrap items-center justify-between gap-2 border-b border-emerald-200/60 bg-emerald-50 px-6 py-2.5 text-xs dark:border-emerald-900/40 dark:bg-emerald-950/30">
       <div className="flex items-center gap-2.5">
         <span className="grid size-6 place-items-center border border-emerald-300 bg-emerald-100 text-emerald-800 dark:border-emerald-700/60 dark:bg-emerald-900/40 dark:text-emerald-200">
           <IconBolt className="size-3.5" />

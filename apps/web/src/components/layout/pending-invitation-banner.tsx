@@ -91,7 +91,7 @@ export function PendingInvitationBanner() {
   }
 
   return (
-    <div className="sticky top-[3.25rem] z-10 flex flex-col border-b bg-amber-50 dark:bg-amber-950/30">
+    <div className="sticky top-12 z-20 flex flex-col border-b bg-amber-50 dark:bg-amber-950/30">
       {invitations.map((inv) => {
         const isBusy = busyId === inv.id
         return (

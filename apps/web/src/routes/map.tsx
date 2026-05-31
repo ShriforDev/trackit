@@ -17,7 +17,7 @@ import {
 import L from "leaflet"
 import "leaflet/dist/leaflet.css"
 
-import { AppHeader } from "@/components/layout/app-header"
+import { AppShell } from "@/components/layout/app-shell"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
@@ -93,9 +93,7 @@ export function MapPage() {
   )
 
   return (
-    <div className="flex min-h-svh flex-col">
-      <AppHeader />
-
+    <AppShell breadcrumbs={[{ label: "Map" }]} flush>
       <div className="relative isolate flex-1">
         <MapContainer
           center={DEFAULT_CENTER}
@@ -103,7 +101,7 @@ export function MapPage() {
           minZoom={2}
           maxZoom={19}
           worldCopyJump
-          className="z-0 size-full min-h-[calc(100svh-3.25rem)]"
+          className="z-0 size-full min-h-[calc(100svh-3rem)]"
           attributionControl={false}
         >
           <TileLayer
@@ -251,6 +249,6 @@ export function MapPage() {
           </div>
         ) : null}
       </div>
-    </div>
+    </AppShell>
   )
 }

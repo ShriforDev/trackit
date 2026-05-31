@@ -16,7 +16,7 @@ import {
   IconTrash,
 } from "@tabler/icons-react"
 
-import { AppFooter, AppHeader } from "@/components/layout/app-header"
+import { AppShell } from "@/components/layout/app-shell"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -154,9 +154,8 @@ export function DeviceDetailPage() {
 
   if (loadError) {
     return (
-      <div className="flex min-h-svh flex-col">
-        <AppHeader />
-        <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col items-center justify-center px-6 py-10">
+      <AppShell breadcrumbs={[{ label: "Devices", to: "/devices" }, { label: "Not found" }]}>
+        <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col items-center justify-center">
           <div className="flex w-full flex-col items-center gap-4 border border-destructive/30 bg-destructive/5 px-6 py-10 text-center">
             <IconAlertCircle className="size-6 text-destructive" />
             <div className="flex flex-col gap-1">
@@ -172,20 +171,18 @@ export function DeviceDetailPage() {
               Back to devices
             </Button>
           </div>
-        </main>
-        <AppFooter />
-      </div>
+        </div>
+      </AppShell>
     )
   }
 
   if (!device) {
     return (
-      <div className="flex min-h-svh flex-col">
-        <AppHeader />
-        <main className="flex flex-1 items-center justify-center">
+      <AppShell breadcrumbs={[{ label: "Devices", to: "/devices" }, { label: "Loading" }]}>
+        <div className="flex flex-1 items-center justify-center">
           <Spinner />
-        </main>
-      </div>
+        </div>
+      </AppShell>
     )
   }
 
@@ -200,20 +197,14 @@ export function DeviceDetailPage() {
   const isPhone = device.kind === "phone"
 
   return (
-    <div className="flex min-h-svh flex-col">
-      <AppHeader />
-
-      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-6 py-10">
+    <AppShell
+      breadcrumbs={[
+        { label: "Devices", to: "/devices" },
+        { label: device.name },
+      ]}
+    >
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
         <div className="flex flex-col gap-2">
-          <Button
-            render={<Link to="/devices" />}
-            variant="ghost"
-            size="sm"
-            className="-ml-2 w-fit"
-          >
-            <IconArrowLeft data-icon="inline-start" />
-            Back to devices
-          </Button>
           <div className="flex items-center gap-3">
             <span
               aria-hidden
@@ -381,10 +372,8 @@ export function DeviceDetailPage() {
             </Button>
           </div>
         </div>
-      </main>
-
-      <AppFooter />
-    </div>
+      </div>
+    </AppShell>
   )
 }
 

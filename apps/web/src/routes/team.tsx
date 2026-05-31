@@ -10,7 +10,7 @@ import {
 } from "@tabler/icons-react"
 
 import { FullPageLoader } from "@/components/auth/auth-guard"
-import { AppFooter, AppHeader } from "@/components/layout/app-header"
+import { AppShell } from "@/components/layout/app-shell"
 import { InviteMemberDialog } from "@/components/team/invite-member-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -122,10 +122,9 @@ export function TeamPage() {
 
   if (orgPending) {
     return (
-      <div className="flex min-h-svh flex-col">
-        <AppHeader />
+      <AppShell breadcrumbs={[{ label: "Team" }]}>
         <FullPageLoader />
-      </div>
+      </AppShell>
     )
   }
 
@@ -136,10 +135,8 @@ export function TeamPage() {
   const members = activeOrg?.members ?? []
 
   return (
-    <div className="flex min-h-svh flex-col">
-      <AppHeader />
-
-      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-10 px-6 py-12">
+    <AppShell breadcrumbs={[{ label: "Team" }]}>
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-10">
         {/* Page header */}
         <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex flex-col gap-2">
@@ -345,9 +342,7 @@ export function TeamPage() {
             </Table>
           </div>
         </section>
-      </main>
-
-      <AppFooter />
-    </div>
+      </div>
+    </AppShell>
   )
 }

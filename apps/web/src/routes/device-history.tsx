@@ -25,7 +25,7 @@ import {
   useMap,
 } from "react-leaflet"
 
-import { AppHeader } from "@/components/layout/app-header"
+import { AppShell } from "@/components/layout/app-shell"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
@@ -250,26 +250,45 @@ export function DeviceHistoryPage() {
 
   if (deviceError) {
     return (
-      <PageShell>
+      <AppShell
+        breadcrumbs={[
+          { label: "Devices", to: "/devices" },
+          { label: "History" },
+        ]}
+        flush
+      >
         <ErrorState message={deviceError} />
-      </PageShell>
+      </AppShell>
     )
   }
 
   if (!device) {
     return (
-      <PageShell>
+      <AppShell
+        breadcrumbs={[
+          { label: "Devices", to: "/devices" },
+          { label: "History" },
+        ]}
+        flush
+      >
         <div className="flex flex-1 items-center justify-center">
           <Spinner />
         </div>
-      </PageShell>
+      </AppShell>
     )
   }
 
   const color = colorHexFor(device.color as DeviceColorId)
 
   return (
-    <PageShell>
+    <AppShell
+      breadcrumbs={[
+        { label: "Devices", to: "/devices" },
+        { label: device.name, to: `/devices/${device.id}` },
+        { label: "History" },
+      ]}
+      flush
+    >
       <PageBar device={device} range={range} onRangeChange={setRange} />
 
       <div className="flex flex-1 flex-col lg:flex-row">
@@ -337,18 +356,7 @@ export function DeviceHistoryPage() {
           setSpeed(PLAYBACK_SPEEDS[(idx + 1) % PLAYBACK_SPEEDS.length])
         }}
       />
-    </PageShell>
-  )
-}
-
-// ----- shell -----
-
-function PageShell({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex min-h-svh flex-col">
-      <AppHeader />
-      {children}
-    </div>
+    </AppShell>
   )
 }
 
