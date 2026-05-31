@@ -23,6 +23,7 @@ import {
 } from "@tabler/icons-react"
 
 import { AppShell } from "@/components/layout/app-shell"
+import { MapNavControls } from "@/components/map/map-nav-controls"
 import { Button } from "@/components/ui/button"
 import { Field, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
@@ -181,6 +182,14 @@ function FitOnLoad({ bounds }: { bounds: L.LatLngBoundsExpression | null }) {
   return null
 }
 
+function MapInstanceCapture({ onReady }: { onReady: (m: L.Map) => void }) {
+  const map = useMap()
+  useEffect(() => {
+    onReady(map)
+  }, [map, onReady])
+  return null
+}
+
 // ---- main page ------------------------------------------------------------
 
 export function GeofenceNewPage() {
@@ -204,6 +213,9 @@ export function GeofenceNewPage() {
   // submission
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
+
+  // map instance — captured once mounted, used by floating nav controls
+  const [mapInstance, setMapInstance] = useState<L.Map | null>(null)
 
   // existing geofences (for faded background)
   const [existing, setExisting] = useState<GeofenceDTO[] | null>(null)
@@ -358,6 +370,7 @@ export function GeofenceNewPage() {
             />
 
             <FitOnLoad bounds={initialBounds} />
+            <MapInstanceCapture onReady={setMapInstance} />
             {existing ? <FadedExisting list={existing} /> : null}
 
             {/* Drawing handlers */}
@@ -438,8 +451,11 @@ export function GeofenceNewPage() {
             ) : null}
           </MapContainer>
 
-          {/* Floating instruction pill — top-left of the map */}
-          <div className="pointer-events-none absolute left-4 top-4 z-[400] max-w-xs">
+          {/* Floating nav controls — search, locate, jump-to-device */}
+          {mapInstance ? <MapNavControls map={mapInstance} /> : null}
+
+          {/* Instruction pill — bottom-left of the map (out of the way of search) */}
+          <div className="pointer-events-none absolute bottom-4 left-4 z-[400] max-w-xs">
             <div className="pointer-events-auto flex items-start gap-2 border bg-background/95 px-3 py-2 ring-1 ring-foreground/10 backdrop-blur">
               {kind === "polygon" ? (
                 <IconPolygon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
@@ -473,9 +489,9 @@ export function GeofenceNewPage() {
             </div>
           </div>
 
-          {/* Reset chip — bottom-left */}
+          {/* Reset chip — bottom-left, stacked above the instruction pill */}
           {(vertices.length > 0 || center) && (
-            <div className="pointer-events-none absolute bottom-4 left-4 z-[400]">
+            <div className="pointer-events-none absolute bottom-[5.5rem] left-4 z-[400]">
               <Button
                 type="button"
                 variant="outline"
