@@ -1,6 +1,10 @@
 import { EventEmitter } from "node:events"
 
 import type { FleetPosition } from "@trackit/shared"
+import type {
+  GeofenceDTO,
+  GeofenceEventDTO,
+} from "@trackit/shared/geofence"
 
 /**
  * Single in-process bus that fans out fleet position deltas to every WS
@@ -24,21 +28,37 @@ export const fleetBus = new FleetBus()
 fleetBus.setMaxListeners(0)
 
 /**
- * Delta payload broadcast on every successful Tile38 SET. Carries the
- * fully-resolved FleetPosition shape (with name, color, kind, owner)
- * so subscribers can render directly without round-tripping back to
- * GET /fleet — newly-connected clients see consistent shapes whether
- * they receive the data via initial snapshot OR via a delta.
+ * Wire-format messages flowing on the org channel. Discriminated union
+ * so the WS server can multiplex position deltas + geofence-related
+ * notifications on the same socket without inventing a second channel.
  */
+export type FleetMessage =
+  | ({ type: "position" } & FleetPosition)
+  | { type: "geofence:created"; geofence: GeofenceDTO }
+  | { type: "geofence:updated"; geofence: GeofenceDTO }
+  | { type: "geofence:shape_changed"; geofence: GeofenceDTO; revision: number }
+  | { type: "geofence:deleted"; geofenceId: string }
+  | { type: "geofence:event"; event: GeofenceEventDTO }
+
+/** Legacy alias kept for callers that still emit raw FleetPosition. */
 export type FleetDelta = FleetPosition
 
 /**
- * Broadcast a delta on the org's channel. Subscribers attach via
- * `fleetBus.on(fleetBus.channelFor(orgId), handler)` and detach on close.
+ * Broadcast a position delta. Backwards-compatible — wraps the position
+ * in `{type: "position", ...}` for the discriminated union.
  */
 export function emitFleetDelta(
   organizationId: string,
   delta: FleetDelta
 ): void {
-  fleetBus.emit(fleetBus.channelFor(organizationId), delta)
+  const msg: FleetMessage = { type: "position", ...delta }
+  fleetBus.emit(fleetBus.channelFor(organizationId), msg)
+}
+
+/** Broadcast a single geofence:* message on an org's channel. */
+export function emitGeofenceMessage(
+  organizationId: string,
+  msg: Exclude<FleetMessage, { type: "position" }>
+): void {
+  fleetBus.emit(fleetBus.channelFor(organizationId), msg)
 }

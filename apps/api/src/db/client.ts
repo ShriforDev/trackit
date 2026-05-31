@@ -2,6 +2,7 @@ import { drizzle } from "drizzle-orm/postgres-js"
 import postgres from "postgres"
 
 import * as authSchema from "./schema"
+import * as geofenceSchema from "./geofence-schema"
 import * as historySchema from "./history-schema"
 import * as tenantSchema from "./tenant-schema"
 
@@ -22,7 +23,12 @@ const client = postgres(url, {
   prepare: false, // safer with poolers like pgbouncer; tiny perf cost
 })
 
-export const schema = { ...authSchema, ...tenantSchema, ...historySchema }
+export const schema = {
+  ...authSchema,
+  ...tenantSchema,
+  ...geofenceSchema,
+  ...historySchema,
+}
 export const db = drizzle(client, { schema })
 export type Database = typeof db
 

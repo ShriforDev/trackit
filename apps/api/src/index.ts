@@ -5,8 +5,11 @@ import { logger } from "hono/logger"
 import { sql } from "drizzle-orm"
 import { auth } from "./auth"
 import { closeDb, db } from "./db/client"
+import { startDwellSweep, stopDwellSweep } from "./lib/geofence-dwell-sweep"
 import { deviceRoutes } from "./routes/devices"
+import { eventRoutes } from "./routes/events"
 import { fleetRoutes } from "./routes/fleet"
+import { geofenceRoutes } from "./routes/geofences"
 import { invitationRoutes } from "./routes/invitations"
 import { closeTile38, tile38 } from "./tile38/client"
 import {
@@ -96,17 +99,24 @@ app.on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw))
 // Tenant resources, all under /api so they don't collide with frontend
 // SPA routes (e.g. /devices, /map, /team) on a hard refresh.
 app.route("/api/devices", deviceRoutes)
+app.route("/api/events", eventRoutes)
 app.route("/api/fleet", fleetRoutes)
+app.route("/api/geofences", geofenceRoutes)
 app.route("/api/invitations", invitationRoutes)
 
 const port = Number(process.env.API_PORT ?? 3001)
 
 console.log(`[api] listening on http://localhost:${port}`)
 
+// Start the in-process geofence dwell sweep. Idempotent — safe to call
+// once at boot.
+startDwellSweep()
+
 // Drain DB and Tile38 connections on Ctrl+C / container stop so dev restarts
 // are clean.
 const shutdown = async (signal: string) => {
   console.log(`[api] received ${signal}, closing connections…`)
+  stopDwellSweep()
   const results = await Promise.allSettled([closeDb(), closeTile38()])
   for (const r of results) {
     if (r.status === "rejected") console.error("[api] shutdown error:", r.reason)

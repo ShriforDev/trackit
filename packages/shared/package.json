@@ -11,7 +11,8 @@
     "./consent": "./src/consent.ts",
     "./auth-fields": "./src/auth-fields.ts",
     "./devices": "./src/devices.ts",
-    "./locations": "./src/locations.ts"
+    "./locations": "./src/locations.ts",
+    "./geofence": "./src/geofence.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

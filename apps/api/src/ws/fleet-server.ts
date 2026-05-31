@@ -2,6 +2,10 @@ import type { Server, ServerWebSocket } from "bun"
 import { and, eq, inArray } from "drizzle-orm"
 
 import type { FleetPosition } from "@trackit/shared"
+import type {
+  GeofenceDTO,
+  GeofenceEventDTO,
+} from "@trackit/shared/geofence"
 
 import { auth } from "../auth"
 import { db } from "../db/client"
@@ -9,7 +13,7 @@ import { member } from "../db/schema"
 import { device, deviceShare } from "../db/tenant-schema"
 import { getFleetSnapshot } from "../tile38/fleet"
 
-import { fleetBus, type FleetDelta } from "./fleet-bus"
+import { fleetBus, type FleetMessage } from "./fleet-bus"
 
 /**
  * Per-connection state stashed on ws.data. Computed once at upgrade time
@@ -155,13 +159,18 @@ async function buildSnapshot(
 }
 
 /**
- * Wire-format envelope. Snapshot is sent once on open; deltas are sent
- * whenever the bus fires. Clients can `JSON.parse(event.data)` and switch
- * on `type`.
+ * Wire-format envelope. Snapshot is sent once on open; deltas + geofence
+ * messages are sent whenever the bus fires. Clients can `JSON.parse(event.data)`
+ * and switch on `type`.
  */
 export type FleetServerMessage =
   | { type: "snapshot"; payload: FleetPosition[] }
   | { type: "delta"; payload: FleetPosition }
+  | { type: "geofence:created"; geofence: GeofenceDTO }
+  | { type: "geofence:updated"; geofence: GeofenceDTO }
+  | { type: "geofence:shape_changed"; geofence: GeofenceDTO; revision: number }
+  | { type: "geofence:deleted"; geofenceId: string }
+  | { type: "geofence:event"; event: GeofenceEventDTO }
   | { type: "error"; message: string }
 
 export const fleetWebSocketHandlers = {
@@ -198,17 +207,24 @@ export const fleetWebSocketHandlers = {
       }
     }
 
-    // 2. Subscribe to the org channel for live deltas.
+    // 2. Subscribe to the org channel for live deltas + geofence messages.
     const channel = fleetBus.channelFor(organizationId)
-    const handler = (delta: FleetDelta) => {
-      if (!isAdmin && !visibleIds.has(delta.deviceId)) return
+    const handler = (msg: FleetMessage) => {
       try {
-        ws.send(
-          JSON.stringify({
-            type: "delta",
-            payload: delta,
-          } satisfies FleetServerMessage)
-        )
+        if (msg.type === "position") {
+          const { type: _t, ...position } = msg
+          if (!isAdmin && !visibleIds.has(position.deviceId)) return
+          ws.send(
+            JSON.stringify({
+              type: "delta",
+              payload: position,
+            } satisfies FleetServerMessage)
+          )
+          return
+        }
+        // geofence:* messages are org-wide — every member of the org sees
+        // them regardless of device visibility (per design decision).
+        ws.send(JSON.stringify(msg satisfies FleetServerMessage))
       } catch {
         // Send after close — nothing to recover. close() handles cleanup.
       }

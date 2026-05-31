@@ -24,6 +24,7 @@ export const statement = {
   device: ["create", "read", "update", "delete", "archive"],
   location: ["read"],
   share: ["create", "read", "approve", "deny", "revoke"],
+  geofence: ["create", "read", "update", "delete"],
 } as const
 
 export const ac = createAccessControl(statement)
@@ -38,6 +39,7 @@ export const owner = ac.newRole({
   device: ["create", "read", "update", "delete", "archive"],
   location: ["read"],
   share: ["create", "read", "approve", "deny", "revoke"],
+  geofence: ["create", "read", "update", "delete"],
 })
 
 /**
@@ -49,19 +51,22 @@ export const admin = ac.newRole({
   device: ["create", "read", "update", "delete", "archive"],
   location: ["read"],
   share: ["create", "read", "approve", "deny", "revoke"],
+  geofence: ["create", "read", "update", "delete"],
 })
 
 /**
  * Member — limited. Can manage their own devices and request shares, but
  * cannot delete devices outright (only archive), cannot approve/deny shares,
- * and cannot manage other members. Read of locations is gated by ownership
- * + share status at the query layer.
+ * cannot create/edit/delete geofences (read-only), and cannot manage other
+ * members. Read of locations is gated by ownership + share status at the
+ * query layer.
  */
 export const member = ac.newRole({
   ...memberAc.statements,
   device: ["create", "read", "update", "archive"],
   location: ["read"],
   share: ["create", "read"],
+  geofence: ["read"],
 })
 
 export const roles = { owner, admin, member }

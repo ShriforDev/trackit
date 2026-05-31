@@ -10,6 +10,7 @@ import {
 import { db } from "../db/client"
 import { location } from "../db/history-schema"
 import { device, deviceShare } from "../db/tenant-schema"
+import { detectGeofenceTransitions } from "../lib/geofence-detect"
 import {
   isOrgAdmin,
   requireSession,
@@ -19,7 +20,7 @@ import {
   dropFleetDevice,
   setFleetLocation,
 } from "../tile38/fleet"
-import { emitFleetDelta } from "../ws/fleet-bus"
+import { emitFleetDelta, emitGeofenceMessage } from "../ws/fleet-bus"
 
 const devices = new Hono<{ Variables: { session: SessionContext } }>()
 
@@ -263,6 +264,29 @@ devices.post("/:id/locations", async (c) => {
     }),
   ])
 
+  // Geofence detection — runs after the durable writes so a detection
+  // failure doesn't drop the position itself. Failures here are logged
+  // but the request still succeeds (events can be replayed later if we
+  // ever implement that; the location is what really matters).
+  let geofenceEvents: Awaited<
+    ReturnType<typeof detectGeofenceTransitions>
+  >["events"] = []
+  try {
+    const result = await detectGeofenceTransitions({
+      organizationId,
+      deviceId: id,
+      point: { lat, lon },
+      capturedAt: time,
+      speedMps: speed ?? null,
+    })
+    geofenceEvents = result.events
+  } catch (err) {
+    console.error(
+      "[geofence] detection failed",
+      err instanceof Error ? err.message : err
+    )
+  }
+
   // Broadcast to WS subscribers of this org. Carries the fully-resolved
   // FleetPosition so newly-connected clients and delta receivers see the
   // exact same shape.
@@ -281,6 +305,10 @@ devices.post("/:id/locations", async (c) => {
     batteryPct: battery,
     capturedAtUnix,
   })
+
+  for (const ev of geofenceEvents) {
+    emitGeofenceMessage(organizationId, { type: "geofence:event", event: ev })
+  }
 
   return c.json({ ok: true, time: time.toISOString() }, 201)
 })
