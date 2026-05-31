@@ -20,10 +20,10 @@ import { api, ApiError } from "@/lib/api"
 import {
   organization,
   signOut,
-  useActiveOrganization,
   useSession,
 } from "@/lib/auth-client"
 import { stopTracking } from "@/lib/device-tracker"
+import { useActiveOrg } from "@/lib/use-active-org"
 import { useDeviceTracker } from "@/lib/use-device-tracker"
 import { cn } from "@/lib/utils"
 import type { Role } from "@trackit/shared/permissions"
@@ -139,7 +139,7 @@ export function AppSidebar({ variant = "desktop" }: AppSidebarProps) {
   const navigate = useNavigate()
   const location = useLocation()
   const { data: session } = useSession()
-  const { data: activeOrg, isPending: orgPending } = useActiveOrganization()
+  const { activeOrg, isLoading: orgLoading } = useActiveOrg()
   const tracker = useDeviceTracker()
   const [isSigningOut, setIsSigningOut] = useState(false)
   const [pending, setPending] = useState<PendingCount>({ count: 0 })
@@ -224,7 +224,7 @@ export function AppSidebar({ variant = "desktop" }: AppSidebarProps) {
             "hover:bg-accent/40"
           )}
         >
-          {orgPending ? (
+          {orgLoading ? (
             <Spinner className="size-3 text-muted-foreground" />
           ) : (
             <span className="grid size-6 shrink-0 place-items-center border bg-muted text-[10px] font-medium uppercase">
@@ -232,12 +232,22 @@ export function AppSidebar({ variant = "desktop" }: AppSidebarProps) {
             </span>
           )}
           <div className="flex min-w-0 flex-1 flex-col gap-0.5 leading-tight">
-            <span className="truncate text-xs font-medium">
-              {activeOrg?.name ?? "—"}
-            </span>
-            <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-              {myRole} · {memberCount} {memberCount === 1 ? "member" : "members"}
-            </span>
+            {orgLoading ? (
+              <>
+                <span className="h-3 w-24 animate-pulse bg-muted" />
+                <span className="mt-0.5 h-2.5 w-20 animate-pulse bg-muted/60" />
+              </>
+            ) : (
+              <>
+                <span className="truncate text-xs font-medium">
+                  {activeOrg?.name ?? "—"}
+                </span>
+                <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                  {myRole} · {memberCount}{" "}
+                  {memberCount === 1 ? "member" : "members"}
+                </span>
+              </>
+            )}
           </div>
           <IconChevronRight
             className="size-3 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"

@@ -16,7 +16,8 @@ import { PageHeader } from "@/components/ui/page-header"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
 import { api, ApiError } from "@/lib/api"
-import { useActiveOrganization, useSession } from "@/lib/auth-client"
+import { useSession } from "@/lib/auth-client"
+import { useActiveOrg } from "@/lib/use-active-org"
 import { useDeviceTracker } from "@/lib/use-device-tracker"
 import { cn } from "@/lib/utils"
 
@@ -61,7 +62,7 @@ function ColorSwatch({
 
 export function DevicesPage() {
   const { data: session } = useSession()
-  const { data: activeOrg } = useActiveOrganization()
+  const { activeOrg, isLoading: orgLoading } = useActiveOrg()
   const [devices, setDevices] = useState<Device[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -99,7 +100,11 @@ export function DevicesPage() {
     <AppShell breadcrumbs={[{ label: "Devices" }]}>
       <PageHeader
         eyebrow="Fleet"
-        title={`${activeOrg?.name ?? "Your organization"}'s devices`}
+        title={
+          orgLoading
+            ? "Devices"
+            : `${activeOrg?.name ?? "Your organization"}'s devices`
+        }
         description={
           isAdmin
             ? "You see every active device in the organization."

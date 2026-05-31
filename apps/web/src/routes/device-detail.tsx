@@ -31,7 +31,8 @@ import {
 } from "@/components/ui/dialog"
 import { Spinner } from "@/components/ui/spinner"
 import { api, ApiError } from "@/lib/api"
-import { useActiveOrganization, useSession } from "@/lib/auth-client"
+import { useSession } from "@/lib/auth-client"
+import { useActiveOrg } from "@/lib/use-active-org"
 import {
   startTracking,
   stopTracking,
@@ -62,7 +63,7 @@ export function DeviceDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { data: session } = useSession()
-  const { data: activeOrg } = useActiveOrganization()
+  const { activeOrg } = useActiveOrg()
 
   const [device, setDevice] = useState<Device | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)

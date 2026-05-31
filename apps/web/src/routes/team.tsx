@@ -22,7 +22,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { organization, useActiveOrganization, useSession } from "@/lib/auth-client"
+import { organization, useSession } from "@/lib/auth-client"
+import { useActiveOrg } from "@/lib/use-active-org"
 import type { Role } from "@trackit/shared/permissions"
 
 const roleVariants: Record<string, "default" | "secondary" | "outline"> = {
@@ -65,10 +66,10 @@ function formatRelativeTime(date: Date): string {
 export function TeamPage() {
   const { data: session } = useSession()
   const {
-    data: activeOrg,
-    isPending: orgPending,
+    activeOrg,
+    isLoading: orgLoading,
     refetch: refetchOrg,
-  } = useActiveOrganization()
+  } = useActiveOrg()
   const [invitations, setInvitations] = useState<PendingInvitation[] | null>(
     null
   )
@@ -120,7 +121,7 @@ export function TeamPage() {
     loadInvitations()
   }
 
-  if (orgPending) {
+  if (orgLoading) {
     return (
       <AppShell breadcrumbs={[{ label: "Team" }]}>
         <FullPageLoader />
