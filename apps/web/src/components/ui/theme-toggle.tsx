@@ -33,7 +33,7 @@ export function ThemeToggle() {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-[10rem]">
         <DropdownMenuItem
-          onSelect={() => setTheme("light")}
+          onClick={() => setTheme("light")}
           data-active={theme === "light"}
           className="gap-2 data-[active=true]:bg-accent"
         >
@@ -44,7 +44,7 @@ export function ThemeToggle() {
           </kbd>
         </DropdownMenuItem>
         <DropdownMenuItem
-          onSelect={() => setTheme("dark")}
+          onClick={() => setTheme("dark")}
           data-active={theme === "dark"}
           className="gap-2 data-[active=true]:bg-accent"
         >
@@ -52,7 +52,7 @@ export function ThemeToggle() {
           <span>Dark</span>
         </DropdownMenuItem>
         <DropdownMenuItem
-          onSelect={() => setTheme("system")}
+          onClick={() => setTheme("system")}
           data-active={theme === "system"}
           className="gap-2 data-[active=true]:bg-accent"
         >
