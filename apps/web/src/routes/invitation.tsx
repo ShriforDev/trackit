@@ -113,11 +113,18 @@ export function InvitationPage() {
     }
   }, [invitationId])
 
-  // Branch C: signed in with the matching email → silent auto-accept.
+  // Branch C: already signed in with the matching email → silent auto-accept.
+  // Important: skip when `preview.hasAccount === false`. That's the
+  // SignupBranch case — `SignupBranch.onSubmit` already calls
+  // `acceptInvitation` itself, and the new session created by signUp would
+  // otherwise trigger this effect to fire a duplicate accept (which 400s
+  // because the invitation has already been accepted on the first call,
+  // surfacing a misleading "invitation not found" toast).
   useEffect(() => {
     if (!preview || !invitationId) return
     if (sessionPending) return
     if (!session) return
+    if (preview.hasAccount === false) return
     if (
       session.user.email.toLowerCase() !== preview.email.toLowerCase()
     ) {
@@ -176,8 +183,11 @@ export function InvitationPage() {
 
   // Branch C is in flight (auto-accepting) — show a quiet spinner so the
   // user doesn't see the form for a split second before redirect.
+  // Mirrors the guard in the Branch C effect above: only applies when the
+  // user already had an account (preview.hasAccount === true).
   if (
     session &&
+    preview.hasAccount &&
     session.user.email.toLowerCase() === preview.email.toLowerCase()
   ) {
     return (

@@ -101,9 +101,27 @@ export const auth = betterAuth({
           }
         },
         after: async (user) => {
-          // First-time signup → create a personal organization with the new
-          // user as owner. session.create.before (below) will then promote
-          // that org to the active org for the brand-new session.
+          // If this user is signing up via an invitation flow, their
+          // membership in the inviter's organization will be created
+          // moments later by `organization.acceptInvitation`. Creating a
+          // junk personal org here would leave them with two memberships,
+          // and the older personal-org row would be picked by
+          // `session.create.before` on every subsequent re-login, pinning
+          // the wrong active org. Skip the auto-create in that case.
+          const pending = (await db.execute(
+            sql`SELECT 1 FROM "invitation"
+                WHERE LOWER(email) = LOWER(${user.email})
+                  AND status = 'pending'
+                  AND expires_at > NOW()
+                LIMIT 1`
+          )) as unknown as Array<unknown>
+          if (pending.length > 0) {
+            return
+          }
+
+          // First-time direct signup → create a personal organization with
+          // the new user as owner. session.create.before (below) will then
+          // promote that org to the active org for the brand-new session.
           const orgName = `${user.name}'s Organization`
           const slugSeed = user.email.split("@")[0] ?? user.name
           await auth.api.createOrganization({
@@ -120,8 +138,16 @@ export const auth = betterAuth({
     session: {
       create: {
         before: async (session) => {
-          // Pin the user's first (oldest) org membership to the new session
-          // so /api/auth/get-session returns activeOrganizationId without an
+          // Defense in depth: never overwrite an explicit activeOrganizationId.
+          // Better Auth may carry one over from the previous session (e.g.
+          // when a user with multiple orgs re-signs-in, we want to keep
+          // whatever they explicitly set with `setActive`).
+          if (session.activeOrganizationId) {
+            return
+          }
+
+          // Otherwise pin the user's first (oldest) org membership so
+          // /api/auth/get-session returns activeOrganizationId without an
           // extra round-trip from the client.
           //
           // Note: during signup-with-autoSignIn, the member row is not yet
