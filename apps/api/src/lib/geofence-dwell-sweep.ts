@@ -38,6 +38,7 @@ interface DwellCandidate {
 
 async function runOnce(): Promise<void> {
   const now = new Date()
+  const nowIso = now.toISOString()
 
   // Pull every (device, geofence) state row that's inside, not yet alerted,
   // for a geofence with dwell enabled. We compute the threshold cutoff
@@ -58,7 +59,7 @@ async function runOnce(): Promise<void> {
       AND s.dwell_alerted = false
       AND g.dwell_threshold_min > 0
       AND s.inside_since IS NOT NULL
-      AND s.inside_since <= ${now} - (g.dwell_threshold_min * INTERVAL '1 minute')
+      AND s.inside_since + (g.dwell_threshold_min * INTERVAL '1 minute') <= ${nowIso}::timestamp
       AND g.deleted_at IS NULL
     LIMIT 500
   `)) as unknown as DwellCandidate[]
