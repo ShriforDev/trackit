@@ -7,6 +7,8 @@ import { DeviceDetailPage } from "@/routes/device-detail"
 import { DeviceHistoryPage } from "@/routes/device-history"
 import { DeviceNewPage } from "@/routes/device-new"
 import { DevicesPage } from "@/routes/devices"
+import { GeofenceNewPage } from "@/routes/geofence-new"
+import { GeofencesPage } from "@/routes/geofences"
 import { InvitationPage } from "@/routes/invitation"
 import { LoginPage } from "@/routes/login"
 import { MapPage } from "@/routes/map"
@@ -81,6 +83,26 @@ export const router = createBrowserRouter([
     element: (
       <RequireAuth>
         <TeamPage />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: "/geofences",
+    element: (
+      <RequireAuth>
+        <RequireConsent>
+          <GeofencesPage />
+        </RequireConsent>
+      </RequireAuth>
+    ),
+  },
+  {
+    path: "/geofences/new",
+    element: (
+      <RequireAuth>
+        <RequireConsent>
+          <GeofenceNewPage />
+        </RequireConsent>
       </RequireAuth>
     ),
   },

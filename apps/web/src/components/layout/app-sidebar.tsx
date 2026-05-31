@@ -10,6 +10,7 @@ import {
   IconMap,
   IconPlayerStopFilled,
   IconSettings,
+  IconShape,
   IconUsers,
 } from "@tabler/icons-react"
 
@@ -49,6 +50,13 @@ const PRIMARY_NAV: NavItemDef[] = [
     icon: IconDeviceMobile,
     kbd: "g d",
     matchPrefixes: ["/devices"],
+  },
+  {
+    to: "/geofences",
+    label: "Geofences",
+    icon: IconShape,
+    kbd: "g f",
+    matchPrefixes: ["/geofences"],
   },
   {
     to: "/team",
