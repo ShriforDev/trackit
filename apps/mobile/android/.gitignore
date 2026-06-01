@@ -57,6 +57,12 @@ captures/
 #*.jks
 #*.keystore
 
+# Release signing — read by app/build.gradle when present, otherwise
+# release builds fall back to debug signing.
+keystore.properties
+*.keystore
+*.jks
+
 # External native build folder generated in Android Studio 2.2 and later
 .externalNativeBuild
 .cxx/

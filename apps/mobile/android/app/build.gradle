@@ -1,5 +1,26 @@
 apply plugin: 'com.android.application'
 
+// Release signing.
+//
+// Reads from a keystore.properties file at the android/ project root.
+// The file is gitignored — its values come from CI secrets in GitHub
+// Actions, or from a manually-created file for local release builds.
+//
+// Local debug builds (`assembleDebug`, Android Studio Run) don't need
+// any of this and will use the default debug keystore as usual.
+//
+// keystore.properties shape:
+//   storeFile=/abs/path/to/trackit-release.keystore
+//   storePassword=...
+//   keyAlias=trackit
+//   keyPassword=...
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+def keystoreProperties = new Properties()
+def hasReleaseSigning = keystorePropertiesFile.exists()
+if (hasReleaseSigning) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
 android {
     namespace = "space.itsshri.trackit"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -16,10 +37,24 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        if (hasReleaseSigning) {
+            release {
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            // Use the real release signing config when keystore.properties
+            // is present; otherwise fall back to debug signing so the
+            // build doesn't fail in environments without secrets.
+            signingConfig hasReleaseSigning ? signingConfigs.release : signingConfigs.debug
         }
     }
 }

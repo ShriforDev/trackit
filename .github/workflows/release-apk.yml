@@ -1,0 +1,151 @@
+name: release-apk
+
+# Build a signed Android APK and attach it to a GitHub Release.
+#
+# Triggered by:
+#   - Pushing a tag matching `v*` (e.g. `git tag v0.1.0 && git push --tags`)
+#   - Manual run via Actions tab (workflow_dispatch) — useful for re-running
+#     a failed build without re-tagging
+#
+# Required repository secrets (Settings → Secrets and variables → Actions):
+#   ANDROID_KEYSTORE_BASE64   base64-encoded contents of trackit-release.keystore
+#   ANDROID_KEYSTORE_PASSWORD store password (= key password if you used the
+#                             same one when generating)
+#   ANDROID_KEY_ALIAS         alias used in keytool -alias (likely "trackit")
+#   ANDROID_KEY_PASSWORD      key password (often same as store password)
+#
+# Outputs:
+#   - dist/trackit-<version>.apk uploaded as a release asset on the tag's
+#     GitHub Release. The release body uses the tag name as title.
+#
+# This workflow does NOT touch the deployed web bundle — that ships via
+# the existing `bun run build:web` flow on EC2. The APK loads the live
+# web URL at runtime, so deploying web changes is independent of cutting
+# new APKs.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write # needed to upload the APK to a GitHub Release
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build web bundle
+        run: bun run build:web
+
+      - name: Sync Capacitor (Android)
+        working-directory: apps/mobile
+        run: bunx cap sync android
+
+      - name: Restore release keystore
+        # The keystore is shipped to CI as a base64-encoded secret. We
+        # decode it back to a real file inside apps/mobile/android/, then
+        # write a keystore.properties pointing at it. build.gradle reads
+        # those automatically when present.
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        working-directory: apps/mobile/android
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 secret is not set. Cannot sign release APK."
+            exit 1
+          fi
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > trackit-release.keystore
+          cat > keystore.properties <<EOF
+          storeFile=$(pwd)/trackit-release.keystore
+          storePassword=$ANDROID_KEYSTORE_PASSWORD
+          keyAlias=$ANDROID_KEY_ALIAS
+          keyPassword=$ANDROID_KEY_PASSWORD
+          EOF
+
+      - name: Build signed APK
+        working-directory: apps/mobile/android
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Determine version
+        id: version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Detected version: $VERSION"
+
+      - name: Rename APK
+        run: |
+          mkdir -p dist
+          cp apps/mobile/android/app/build/outputs/apk/release/app-release.apk \
+             dist/trackit-${{ steps.version.outputs.version }}.apk
+          ls -la dist/
+
+      - name: Compute APK size
+        id: size
+        run: |
+          BYTES=$(stat -c '%s' dist/trackit-${{ steps.version.outputs.version }}.apk)
+          MB=$(awk "BEGIN { printf \"%.1f\", $BYTES / 1048576 }")
+          echo "bytes=$BYTES" >> "$GITHUB_OUTPUT"
+          echo "mb=$MB" >> "$GITHUB_OUTPUT"
+          echo "APK size: $MB MB ($BYTES bytes)"
+
+      - name: Create or update GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          name: trackit ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          body: |
+            ## trackit ${{ github.ref_name }}
+
+            **Android APK:** `trackit-${{ steps.version.outputs.version }}.apk`
+            (${{ steps.size.outputs.mb }} MB)
+
+            ### Install on Android
+
+            1. Download the APK from this release on your phone.
+            2. Open the file from your downloads. Android will ask
+               permission to install from this source — tap **Allow**.
+            3. Trackit installs and launches.
+
+            See `/install` on the trackit landing page for detailed
+            help, including manufacturer-specific battery-optimization
+            tips.
+          files: |
+            dist/trackit-${{ steps.version.outputs.version }}.apk
+
+      - name: Cleanup keystore
+        # Defense in depth — the runner is ephemeral, but explicit
+        # cleanup means even logs / artifacts can't accidentally
+        # surface the keystore.
+        if: always()
+        working-directory: apps/mobile/android
+        run: |
+          rm -f trackit-release.keystore keystore.properties
