@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils"
 import { AppSidebar } from "./app-sidebar"
 import { AppTopbar } from "./app-topbar"
 import { type BreadcrumbItem } from "./breadcrumbs"
+import { MobileUpdateBanner } from "./mobile-update-banner"
 import { PendingInvitationBanner } from "./pending-invitation-banner"
 import { TrackingResumePrompt } from "./tracking-resume-prompt"
 
@@ -44,6 +45,7 @@ export function AppShell({
       <AppSidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <AppTopbar breadcrumbs={breadcrumbs} />
+        <MobileUpdateBanner />
         <PendingInvitationBanner />
         <TrackingResumePrompt />
         <main
