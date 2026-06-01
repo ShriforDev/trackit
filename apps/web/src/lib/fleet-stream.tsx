@@ -9,6 +9,9 @@ import {
   type ReactNode,
 } from "react"
 
+import { App as CapacitorApp } from "@capacitor/app"
+import { Capacitor } from "@capacitor/core"
+
 import { api } from "./api"
 import { useSession } from "./auth-client"
 
@@ -97,6 +100,14 @@ interface InboundMessage {
 export function FleetStreamProvider({ children }: { children: ReactNode }) {
   const { data: session, isPending: sessionPending } = useSession()
   const userId = session?.user.id
+  /**
+   * The org context the WS subscribes to is the *current* active org.
+   * Including it in the effect deps means the WS reconnects automatically
+   * when the user switches orgs or accepts an invitation — without that,
+   * the existing connection stays bound to the old org's bus channel and
+   * silently drops every position delta from the new one.
+   */
+  const activeOrgId = session?.session?.activeOrganizationId ?? null
 
   const [positions, setPositions] = useState<Map<string, FleetPosition>>(
     () => new Map()
@@ -112,6 +123,13 @@ export function FleetStreamProvider({ children }: { children: ReactNode }) {
   const [latestEvent, setLatestEvent] = useState<GeofenceEventDTO | null>(null)
   const [status, setStatus] = useState<FleetStatus>("idle")
   const [error, setError] = useState<string | null>(null)
+  /**
+   * Bumped when something asks for a fresh state pull (visibility regain
+   * on web, app resume on mobile). The connect effect re-runs as part of
+   * its normal teardown/setup cycle — we don't need a separate refresh
+   * code path that could drift out of sync with the main one.
+   */
+  const [forceRefreshCounter, setForceRefreshCounter] = useState(0)
 
   // Keep mutable refs so handlers don't have to re-subscribe on every state tick.
   const positionsRef = useRef(positions)
@@ -149,6 +167,17 @@ export function FleetStreamProvider({ children }: { children: ReactNode }) {
     }
 
     cancelledRef.current = false
+
+    // Whenever the effect re-runs because the active org changed (or the
+    // caller asked for a forced refresh), discard any state that's tied
+    // to the previous org. Positions/geofences/events from org A have
+    // no business showing up while we're connecting to org B.
+    setPositions(new Map())
+    setGeofences(new Map())
+    setEvents([])
+    setLatestEvent(null)
+    setUnreadCount(0)
+    setError(null)
 
     function applyPositions(next: Map<string, FleetPosition>) {
       positionsRef.current = next
@@ -293,7 +322,74 @@ export function FleetStreamProvider({ children }: { children: ReactNode }) {
       }
       wsRef.current = null
     }
-  }, [userId, sessionPending])
+  }, [userId, sessionPending, activeOrgId, forceRefreshCounter])
+
+  /**
+   * Soft-refresh trigger. Bumping the counter re-runs the connect effect,
+   * which closes the existing WS, refetches REST snapshots, and opens a
+   * fresh WS. Used by the visibility / app-state listeners below.
+   *
+   * Rate-limited to one refresh per 5s — rapid tab-switching shouldn't
+   * thrash the connection.
+   */
+  const lastRefreshRef = useRef(0)
+  const requestRefresh = useCallback(() => {
+    const now = Date.now()
+    if (now - lastRefreshRef.current < 5_000) return
+    lastRefreshRef.current = now
+    setForceRefreshCounter((n) => n + 1)
+  }, [])
+
+  /**
+   * Browser visibility: when the tab is brought back to the foreground
+   * after being hidden for a while, sync state. Cheap if the tab was
+   * only hidden briefly (rate-limited above), important if the user
+   * was on another tab for hours.
+   */
+  useEffect(() => {
+    if (typeof document === "undefined") return
+    function onVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        requestRefresh()
+      }
+    }
+    document.addEventListener("visibilitychange", onVisibilityChange)
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange)
+    }
+  }, [requestRefresh])
+
+  /**
+   * Capacitor app lifecycle: on a real phone the OS may freeze or kill
+   * the JS context while the app is backgrounded. When it comes back to
+   * the foreground, the WS may be in any state — best to just reset
+   * cleanly. No-op on web (the listener only fires inside a native shell).
+   */
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return
+    let cancelled = false
+    let cleanup: (() => void) | null = null
+
+    void CapacitorApp.addListener("appStateChange", (state) => {
+      if (cancelled) return
+      if (state.isActive) {
+        requestRefresh()
+      }
+    }).then((handle) => {
+      if (cancelled) {
+        void handle.remove()
+        return
+      }
+      cleanup = () => {
+        void handle.remove()
+      }
+    })
+
+    return () => {
+      cancelled = true
+      cleanup?.()
+    }
+  }, [requestRefresh])
 
   const value = useMemo<FleetStreamApi>(
     () => ({

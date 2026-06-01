@@ -53,6 +53,7 @@
       "dependencies": {
         "@base-ui/react": "^1.5.0",
         "@capacitor-community/background-geolocation": "^1.2.26",
+        "@capacitor/app": "^8.1.0",
         "@capacitor/core": "^8.3.4",
         "@fontsource-variable/geist-mono": "^5.2.8",
         "@fontsource-variable/inter": "^5.2.8",
