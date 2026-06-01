@@ -35,6 +35,7 @@
       "name": "@trackit/mobile",
       "version": "0.0.1",
       "dependencies": {
+        "@capacitor-community/background-geolocation": "^1.2.26",
         "@capacitor/android": "^8.3.4",
         "@capacitor/app": "^8.1.0",
         "@capacitor/core": "^8.3.4",
@@ -51,6 +52,8 @@
       "version": "0.0.1",
       "dependencies": {
         "@base-ui/react": "^1.5.0",
+        "@capacitor-community/background-geolocation": "^1.2.26",
+        "@capacitor/core": "^8.3.4",
         "@fontsource-variable/geist-mono": "^5.2.8",
         "@fontsource-variable/inter": "^5.2.8",
         "@tabler/icons-react": "^3.44.0",
@@ -196,6 +199,8 @@
     "@better-auth/utils": ["@better-auth/utils@0.3.0", "", {}, "sha512-W+Adw6ZA6mgvnSnhOki270rwJ42t4XzSK6YWGF//BbVXL6SwCLWfyzBc1lN2m/4RM28KubdBKQ4X5VMoLRNPQw=="],
 
     "@better-fetch/fetch": ["@better-fetch/fetch@1.1.21", "", {}, "sha512-/ImESw0sskqlVR94jB+5+Pxjf+xBwDZF/N5+y2/q4EqD7IARUTSpPfIo8uf39SYpCxyOCtbyYpUrZ3F/k0zT4A=="],
+
+    "@capacitor-community/background-geolocation": ["@capacitor-community/background-geolocation@1.2.26", "", { "peerDependencies": { "@capacitor/core": ">=3.0.0" } }, "sha512-kuva8VQ6zM+uIKgHUJTP87IYbmGKhX7DZw62JYfGZ888h4Xr5zeN+UTR6KBRHQVrGBpzSfbv+6/HQVuHYa7W5A=="],
 
     "@capacitor/android": ["@capacitor/android@8.3.4", "", { "peerDependencies": { "@capacitor/core": "^8.3.0" } }, "sha512-7gJjrG3X32Am1QMLqgMztWTYMLMVNE+VZwhekNxhvYizH4mOV05vH+rC9B+f17bCkYZfyu/qXQX6hoY7kLeVZw=="],
 
