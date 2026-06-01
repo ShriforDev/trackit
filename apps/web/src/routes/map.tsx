@@ -45,6 +45,7 @@ function formatAge(capturedAtUnix?: number): string {
 }
 
 const STATUS_LABEL: Record<FleetStatus, string> = {
+  idle: "Idle",
   connecting: "Connecting",
   live: "Live",
   reconnecting: "Reconnecting",
@@ -53,6 +54,7 @@ const STATUS_LABEL: Record<FleetStatus, string> = {
 }
 
 const STATUS_TONE: Record<FleetStatus, string> = {
+  idle: "bg-muted-foreground",
   connecting: "bg-amber-500",
   live: "bg-emerald-500 animate-pulse",
   reconnecting: "bg-amber-500 animate-pulse",

@@ -24,6 +24,7 @@ import {
   useSession,
 } from "@/lib/auth-client"
 import { stopTracking } from "@/lib/device-tracker"
+import { useFleetStream } from "@/lib/fleet-stream"
 import { useActiveOrg } from "@/lib/use-active-org"
 import { useDeviceTracker } from "@/lib/use-device-tracker"
 import { cn } from "@/lib/utils"
@@ -149,6 +150,7 @@ export function AppSidebar({ variant = "desktop" }: AppSidebarProps) {
   const { data: session } = useSession()
   const { activeOrg, isLoading: orgLoading } = useActiveOrg()
   const tracker = useDeviceTracker()
+  const { unreadEventsCount } = useFleetStream()
   const [isSigningOut, setIsSigningOut] = useState(false)
   const [pending, setPending] = useState<PendingCount>({ count: 0 })
 
@@ -269,7 +271,15 @@ export function AppSidebar({ variant = "desktop" }: AppSidebarProps) {
       <nav className="-mt-2 flex flex-col gap-0.5 px-2">
         {PRIMARY_NAV.map((item) => {
           if (item.needsTeamMgmt && !canManageTeam) return null
-          return <NavRow key={item.to} item={item} />
+          const isGeofences = item.to === "/geofences"
+          const onGeofencesPage =
+            typeof window !== "undefined" &&
+            window.location.pathname.startsWith("/geofences")
+          const badge =
+            isGeofences && !onGeofencesPage && unreadEventsCount > 0
+              ? unreadEventsCount
+              : undefined
+          return <NavRow key={item.to} item={item} badge={badge} />
         })}
       </nav>
 
@@ -383,7 +393,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   )
 }
 
-function NavRow({ item }: { item: NavItemDef }) {
+function NavRow({ item, badge }: { item: NavItemDef; badge?: number }) {
   const Icon = item.icon
   return (
     <NavLink
@@ -407,6 +417,14 @@ function NavRow({ item }: { item: NavItemDef }) {
     >
       <Icon className="size-3.5" />
       <span className="flex-1">{item.label}</span>
+      {badge !== undefined && badge > 0 ? (
+        <span
+          className="inline-flex h-4 min-w-4 items-center justify-center bg-emerald-500 px-1 font-mono text-[9px] font-medium tabular-nums text-white"
+          aria-label={`${badge} new ${badge === 1 ? "event" : "events"}`}
+        >
+          {badge > 99 ? "99+" : badge}
+        </span>
+      ) : null}
       {item.kbd ? (
         <kbd
           className="hidden font-mono text-[10px] text-muted-foreground/70 group-hover:inline xl:inline"

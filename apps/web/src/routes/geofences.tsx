@@ -1,17 +1,23 @@
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Link } from "react-router"
 import { toast } from "sonner"
 import {
   IconAlertCircle,
+  IconBroadcast,
   IconCircle,
+  IconList,
   IconLock,
   IconPolygon,
   IconRefresh,
   IconShape,
   IconShieldLock,
   IconTrash,
+  IconWaveSawTool,
 } from "@tabler/icons-react"
 
+import { EventsFeed } from "@/components/geofences/events-feed"
+import { LiveSnapshot } from "@/components/geofences/live-snapshot"
+import { NotificationsToggle } from "@/components/geofences/notifications-toggle"
 import { AppShell } from "@/components/layout/app-shell"
 import { Button } from "@/components/ui/button"
 import { EmptyState } from "@/components/ui/empty-state"
@@ -22,14 +28,18 @@ import { ApiError } from "@/lib/api"
 import { useSession } from "@/lib/auth-client"
 import { geofencesApi } from "@/lib/geofences-client"
 import { useActiveOrg } from "@/lib/use-active-org"
+import { useFleetStream } from "@/lib/fleet-stream"
 import { cn } from "@/lib/utils"
 
 import {
+  GEOFENCE_COLORS,
   type GeofenceDTO,
   isCircleShape,
   isPolygonShape,
 } from "@trackit/shared/geofence"
 import type { Role } from "@trackit/shared/permissions"
+
+type TabKey = "list" | "events" | "live"
 
 function formatRadius(m: number): string {
   if (m >= 1000) return `${(m / 1000).toFixed(m % 1000 === 0 ? 0 : 1)} km`
@@ -83,11 +93,10 @@ function GeofenceCard({
 
   return (
     <article className="group relative flex flex-col gap-3 border bg-background px-4 pb-3 pt-4 ring-1 ring-foreground/5 transition-shadow hover:ring-foreground/10">
-      {/* color stripe top */}
       <span
         aria-hidden
         className="pointer-events-none absolute inset-x-0 top-0 h-[3px]"
-        style={{ backgroundColor: hexFor(geofence.color) }}
+        style={{ backgroundColor: GEOFENCE_COLORS[geofence.color] }}
       />
 
       <header className="flex items-start gap-3">
@@ -166,23 +175,48 @@ function GeofenceCard({
   )
 }
 
-// --- color hex resolver (small import-side helper; identical to GeofenceSwatch's) ---
-function hexFor(color: string): string {
-  // match GEOFENCE_COLORS — duplicated to keep this file standalone, swatch is the source of truth
-  const map: Record<string, string> = {
-    citrine: "#f59e0b",
-    jade: "#047857",
-    sapphire: "#2563eb",
-    amethyst: "#9333ea",
-    carmine: "#dc2626",
-    graphite: "#52525b",
-  }
-  return map[color] ?? "#737373"
+function TabButton({
+  active,
+  onClick,
+  icon: Icon,
+  label,
+  badge,
+}: {
+  active: boolean
+  onClick: () => void
+  icon: React.ComponentType<{ className?: string }>
+  label: string
+  badge?: number
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "relative flex items-center gap-1.5 px-3 py-1.5 text-xs transition-colors",
+        active
+          ? "bg-background text-foreground ring-1 ring-foreground/15"
+          : "text-muted-foreground hover:text-foreground"
+      )}
+    >
+      <Icon className="size-3.5" />
+      {label}
+      {badge !== undefined && badge > 0 ? (
+        <span className="ml-0.5 inline-flex h-4 min-w-4 items-center justify-center bg-emerald-500 px-1 font-mono text-[9px] font-medium tabular-nums text-white">
+          {badge > 99 ? "99+" : badge}
+        </span>
+      ) : null}
+    </button>
+  )
 }
 
 export function GeofencesPage() {
   const { data: session } = useSession()
   const { activeOrg } = useActiveOrg()
+  const { unreadEventsCount, clearUnreadEvents } = useFleetStream()
+
+  const [tab, setTab] = useState<TabKey>("list")
   const [geofences, setGeofences] = useState<GeofenceDTO[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -213,6 +247,14 @@ export function GeofencesPage() {
     void load()
   }, [])
 
+  // Clear the unread badge when the user navigates to this page's
+  // events tab — they're now seeing the events directly.
+  useEffect(() => {
+    if (tab === "events" || tab === "live") {
+      clearUnreadEvents()
+    }
+  }, [tab, clearUnreadEvents])
+
   async function onDelete(id: string, name: string) {
     if (!confirm(`Delete "${name}"? Past events stay attached to it.`)) return
     setDeletingId(id)
@@ -236,6 +278,11 @@ export function GeofencesPage() {
   const insideCount =
     geofences?.reduce((acc, g) => acc + (g.insideCount ?? 0), 0) ?? 0
 
+  const eventsBadge = useMemo(
+    () => (tab !== "events" ? unreadEventsCount : 0),
+    [tab, unreadEventsCount]
+  )
+
   return (
     <AppShell breadcrumbs={[{ label: "Geofences" }]}>
       <PageHeader
@@ -248,6 +295,7 @@ export function GeofencesPage() {
         }
         actions={
           <div className="flex items-center gap-2">
+            <NotificationsToggle />
             <Button
               type="button"
               variant="outline"
@@ -280,64 +328,43 @@ export function GeofencesPage() {
         }
       />
 
-      {/* error */}
-      {loadError ? (
-        <div className="mt-6 flex items-start gap-2 border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive ring-1 ring-foreground/5">
-          <IconAlertCircle className="size-3.5 shrink-0" />
-          {loadError}
-        </div>
-      ) : null}
+      {/* Tabs */}
+      <div className="mt-5 flex items-center gap-1 border bg-muted/20 p-0.5 self-start ring-1 ring-foreground/5 w-fit">
+        <TabButton
+          active={tab === "list"}
+          onClick={() => setTab("list")}
+          icon={IconList}
+          label="List"
+        />
+        <TabButton
+          active={tab === "events"}
+          onClick={() => setTab("events")}
+          icon={IconWaveSawTool}
+          label="Events"
+          badge={eventsBadge}
+        />
+        <TabButton
+          active={tab === "live"}
+          onClick={() => setTab("live")}
+          icon={IconBroadcast}
+          label="Live"
+        />
+      </div>
 
-      {/* loading */}
-      {!geofences && !loadError ? (
-        <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-48 w-full" />
-          ))}
-        </div>
-      ) : null}
-
-      {/* empty */}
-      {geofences && geofences.length === 0 ? (
-        <div className="mt-8">
-          <EmptyState
-            icon={<IconShape className="size-5" />}
-            title="No geofences yet"
-            description={
-              isAdmin
-                ? "Draw a polygon or circle on the map to start watching for entries, exits, approaches, or stays."
-                : "Once an owner or admin creates a geofence, you'll see it here and start receiving its events."
-            }
-            action={
-              isAdmin ? (
-                <Button render={<Link to="/geofences/new" />} size="sm">
-                  <IconShape data-icon="inline-start" />
-                  Create geofence
-                </Button>
-              ) : (
-                <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-                  <IconShieldLock className="size-3.5" />
-                  Owner or admin only
-                </span>
-              )
-            }
+      <div className="mt-6">
+        {tab === "list" ? (
+          <ListTab
+            geofences={geofences}
+            loadError={loadError}
+            isAdmin={isAdmin}
+            onDelete={onDelete}
           />
-        </div>
-      ) : null}
+        ) : null}
 
-      {/* grid */}
-      {geofences && geofences.length > 0 ? (
-        <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {geofences.map((g) => (
-            <GeofenceCard
-              key={g.id}
-              geofence={g}
-              isAdmin={isAdmin}
-              onDelete={() => void onDelete(g.id, g.name)}
-            />
-          ))}
-        </div>
-      ) : null}
+        {tab === "events" ? <EventsFeed /> : null}
+
+        {tab === "live" ? <LiveSnapshot /> : null}
+      </div>
 
       {deletingId ? (
         <div className="pointer-events-none fixed inset-x-0 bottom-6 z-40 flex justify-center">
@@ -348,5 +375,74 @@ export function GeofencesPage() {
         </div>
       ) : null}
     </AppShell>
+  )
+}
+
+function ListTab({
+  geofences,
+  loadError,
+  isAdmin,
+  onDelete,
+}: {
+  geofences: GeofenceDTO[] | null
+  loadError: string | null
+  isAdmin: boolean
+  onDelete: (id: string, name: string) => void
+}) {
+  return (
+    <>
+      {loadError ? (
+        <div className="flex items-start gap-2 border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive ring-1 ring-foreground/5">
+          <IconAlertCircle className="size-3.5 shrink-0" />
+          {loadError}
+        </div>
+      ) : null}
+
+      {!geofences && !loadError ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-48 w-full" />
+          ))}
+        </div>
+      ) : null}
+
+      {geofences && geofences.length === 0 ? (
+        <EmptyState
+          icon={<IconShape className="size-5" />}
+          title="No geofences yet"
+          description={
+            isAdmin
+              ? "Draw a polygon or circle on the map to start watching for entries, exits, approaches, or stays."
+              : "Once an owner or admin creates a geofence, you'll see it here and start receiving its events."
+          }
+          action={
+            isAdmin ? (
+              <Button render={<Link to="/geofences/new" />} size="sm">
+                <IconShape data-icon="inline-start" />
+                Create geofence
+              </Button>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                <IconShieldLock className="size-3.5" />
+                Owner or admin only
+              </span>
+            )
+          }
+        />
+      ) : null}
+
+      {geofences && geofences.length > 0 ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {geofences.map((g) => (
+            <GeofenceCard
+              key={g.id}
+              geofence={g}
+              isAdmin={isAdmin}
+              onDelete={() => void onDelete(g.id, g.name)}
+            />
+          ))}
+        </div>
+      ) : null}
+    </>
   )
 }
