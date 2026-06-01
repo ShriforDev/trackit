@@ -10,7 +10,6 @@ import { Link } from "react-router"
 import {
   IconAlertCircle,
   IconArrowLeft,
-  IconBolt,
   IconDeviceMobile,
   IconEye,
   IconEyeOff,
@@ -23,7 +22,6 @@ import "leaflet/dist/leaflet.css"
 import { GeofenceOverlayLayer } from "@/components/map/geofence-overlay-layer"
 import { MapNavControls } from "@/components/map/map-nav-controls"
 import { AppShell } from "@/components/layout/app-shell"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
 import { useFleet, type FleetStatus } from "@/lib/use-fleet"
@@ -209,62 +207,17 @@ export function MapPage() {
 
         {mapInstance ? <MapNavControls map={mapInstance} /> : null}
 
-        {/* Status pill + filters */}
-        <div className="pointer-events-none absolute right-4 top-20 z-[440] flex flex-col items-end gap-2 lg:top-4">
-          <div className="pointer-events-auto flex items-center gap-2 border bg-background/90 px-2.5 py-1.5 text-[11px] font-medium ring-1 ring-foreground/10 backdrop-blur">
-            <span className={`size-1.5 rounded-full ${STATUS_TONE[status]}`} />
-            <span>{STATUS_LABEL[status]}</span>
-            <span className="text-muted-foreground">·</span>
-            <span className="text-muted-foreground">
-              {positions.size} device{positions.size === 1 ? "" : "s"}
-            </span>
-            {geofencesList.length > 0 ? (
-              <>
-                <span className="text-muted-foreground">·</span>
-                <span className="text-muted-foreground">
-                  {geofencesList.length} zone{geofencesList.length === 1 ? "" : "s"}
-                  {insideTotal > 0 ? (
-                    <>
-                      {" · "}
-                      <span className="font-mono tabular-nums text-emerald-600 dark:text-emerald-400">
-                        {insideTotal} inside
-                      </span>
-                    </>
-                  ) : null}
-                </span>
-              </>
-            ) : null}
-          </div>
-
-          {/* Filter chips */}
-          {geofencesList.length > 0 ? (
-            <div className="pointer-events-auto flex items-center gap-1 border bg-background/90 p-0.5 ring-1 ring-foreground/10 backdrop-blur">
-              <FilterChip
-                active={showGeofences}
-                onClick={() => setShowGeofences((v) => !v)}
-                Icon={showGeofences ? IconShape : IconEyeOff}
-                label={showGeofences ? "Zones on" : "Zones off"}
-                title="Toggle geofence overlays"
-              />
-              {showGeofences ? (
-                <FilterChip
-                  active={emphasizeActive}
-                  onClick={() => setEmphasizeActive((v) => !v)}
-                  Icon={emphasizeActive ? IconEye : IconEyeOff}
-                  label={emphasizeActive ? "Active only" : "All zones"}
-                  title="Dim zones with no devices inside"
-                />
-              ) : null}
-            </div>
-          ) : null}
-
-          {error ? (
+        {/* Error banner — top-right under nav controls. Kept visually
+            isolated from the status pill so an error never sits next to
+            the "Live" indicator and gets misread. */}
+        {error ? (
+          <div className="pointer-events-none absolute right-4 top-32 z-[440] flex justify-end lg:top-28">
             <div className="pointer-events-auto flex items-center gap-2 border border-destructive/40 bg-destructive/10 px-2.5 py-1.5 text-[11px] text-destructive backdrop-blur">
               <IconAlertCircle className="size-3.5" />
               {error}
             </div>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
 
         {/* Empty state */}
         {status === "live" && positions.size === 0 ? (
@@ -313,18 +266,58 @@ export function MapPage() {
           </Button>
         </div>
 
-        {/* Power indicator (just shows live count of fixes received) */}
-        {status === "live" && positions.size > 0 ? (
-          <div className="pointer-events-none absolute bottom-4 right-4 z-10">
-            <Badge
-              variant="outline"
-              className="pointer-events-auto bg-background/90 gap-1 backdrop-blur"
-            >
-              <IconBolt className="size-3" />
-              live · WS
-            </Badge>
+        {/* Bottom-right: status pill + filter chips. This is the page's
+            "system state" corner — kept clear of the top-right which is
+            owned by MapNavControls (locate me + jump to device). */}
+        <div className="pointer-events-none absolute bottom-4 right-4 z-10 flex flex-col items-end gap-2">
+          {/* Filter chips above the status pill so they don't crowd
+              the corner when there are no zones to control */}
+          {geofencesList.length > 0 ? (
+            <div className="pointer-events-auto flex items-center gap-1 border bg-background/90 p-0.5 ring-1 ring-foreground/10 backdrop-blur">
+              <FilterChip
+                active={showGeofences}
+                onClick={() => setShowGeofences((v) => !v)}
+                Icon={showGeofences ? IconShape : IconEyeOff}
+                label={showGeofences ? "Zones on" : "Zones off"}
+                title="Toggle geofence overlays"
+              />
+              {showGeofences ? (
+                <FilterChip
+                  active={emphasizeActive}
+                  onClick={() => setEmphasizeActive((v) => !v)}
+                  Icon={emphasizeActive ? IconEye : IconEyeOff}
+                  label={emphasizeActive ? "Active only" : "All zones"}
+                  title="Dim zones with no devices inside"
+                />
+              ) : null}
+            </div>
+          ) : null}
+
+          <div className="pointer-events-auto flex items-center gap-2 border bg-background/90 px-2.5 py-1.5 text-[11px] font-medium ring-1 ring-foreground/10 backdrop-blur">
+            <span className={`size-1.5 rounded-full ${STATUS_TONE[status]}`} />
+            <span>{STATUS_LABEL[status]}</span>
+            <span className="text-muted-foreground">·</span>
+            <span className="text-muted-foreground">
+              {positions.size} device{positions.size === 1 ? "" : "s"}
+            </span>
+            {geofencesList.length > 0 ? (
+              <>
+                <span className="text-muted-foreground">·</span>
+                <span className="text-muted-foreground">
+                  {geofencesList.length} zone{geofencesList.length === 1 ? "" : "s"}
+                  {insideTotal > 0 ? (
+                    <>
+                      {" · "}
+                      <span className="font-mono tabular-nums text-emerald-600 dark:text-emerald-400">
+                        {insideTotal} inside
+                      </span>
+                    </>
+                  ) : null}
+                </span>
+              </>
+            ) : null}
           </div>
-        ) : null}
+        </div>
       </div>
     </AppShell>
   )
