@@ -6,6 +6,7 @@ import {
   IconChevronRight,
   IconClock,
   IconCompass,
+  IconEyeOff,
   IconGauge,
   IconMap,
   IconPlayerPauseFilled,
@@ -13,6 +14,8 @@ import {
   IconPlayerSkipBackFilled,
   IconPlayerSkipForwardFilled,
   IconRoute,
+  IconShape,
+  IconWaveSawTool,
 } from "@tabler/icons-react"
 import L from "leaflet"
 import "leaflet/dist/leaflet.css"
@@ -25,11 +28,15 @@ import {
   useMap,
 } from "react-leaflet"
 
+import { presentationFor } from "@/components/geofences/event-presentation"
+import { GeofenceOverlayLayer } from "@/components/map/geofence-overlay-layer"
 import { AppShell } from "@/components/layout/app-shell"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
 import { api, ApiError } from "@/lib/api"
+import { useGeofences } from "@/lib/fleet-stream"
+import { eventsApi } from "@/lib/geofences-client"
 import { cn } from "@/lib/utils"
 
 import {
@@ -38,6 +45,10 @@ import {
   type DeviceColorId,
   type LocationHistoryRow,
 } from "@trackit/shared"
+import type {
+  GeofenceDTO,
+  GeofenceEventDTO,
+} from "@trackit/shared/geofence"
 
 // ----- constants -----
 
@@ -139,12 +150,15 @@ function toLocalDatetimeInput(d: Date): string {
 export function DeviceHistoryPage() {
   const { id } = useParams<{ id: string }>()
   const [device, setDevice] = useState<Device | null>(null)
+  const { list: geofencesList } = useGeofences()
   const [deviceError, setDeviceError] = useState<string | null>(null)
 
   const [range, setRange] = useState<DateRange>(() => makePreset("24h"))
 
   // Server returns DESC (newest first); we sort ASC for the timeline.
   const [points, setPoints] = useState<LocationHistoryRow[]>([])
+  const [events, setEvents] = useState<GeofenceEventDTO[]>([])
+  const [showOverlays, setShowOverlays] = useState(true)
   const [isLoading, setIsLoading] = useState(true)
   const [historyError, setHistoryError] = useState<string | null>(null)
 
@@ -213,6 +227,35 @@ export function DeviceHistoryPage() {
       .finally(() => {
         if (seq === requestSeqRef.current) setIsLoading(false)
       })
+  }, [id, range])
+
+  // Fetch geofence events scoped to this device + range. Runs in
+  // parallel with history; failure is non-fatal (events stay empty).
+  useEffect(() => {
+    if (!id) return
+    let cancelled = false
+    eventsApi
+      .list({
+        deviceIds: [id],
+        since: range.from,
+        until: range.to,
+        limit: 500,
+      })
+      .then((rows) => {
+        if (cancelled) return
+        // Sort ASC so playback shows them in chronological order.
+        const ascending = [...rows].sort(
+          (a, b) => new Date(a.time).getTime() - new Date(b.time).getTime()
+        )
+        setEvents(ascending)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setEvents([])
+      })
+    return () => {
+      cancelled = true
+    }
   }, [id, range])
 
   // Playback ticker.
@@ -313,7 +356,15 @@ export function DeviceHistoryPage() {
             </div>
           ) : null}
 
-          <HistoryMap points={points} color={color} cursorIndex={scrubIndex} />
+          <HistoryMap
+            points={points}
+            color={color}
+            cursorIndex={scrubIndex}
+            events={events}
+            geofences={geofencesList}
+            showOverlays={showOverlays}
+            onToggleOverlays={() => setShowOverlays((v) => !v)}
+          />
         </div>
 
         {/* Right rail (stats) */}
@@ -496,10 +547,18 @@ function HistoryMap({
   points,
   color,
   cursorIndex,
+  events,
+  geofences,
+  showOverlays,
+  onToggleOverlays,
 }: {
   points: LocationHistoryRow[]
   color: string
   cursorIndex: number
+  events: GeofenceEventDTO[]
+  geofences: GeofenceDTO[]
+  showOverlays: boolean
+  onToggleOverlays: () => void
 }) {
   const positions = useMemo<[number, number][]>(
     () => points.map((p) => [p.latitude, p.longitude]),
@@ -509,6 +568,15 @@ function HistoryMap({
   const cursor = points[cursorIndex]
   const start = points[0]
   const end = points[points.length - 1]
+
+  const geofenceById = useMemo(() => {
+    const m = new Map<string, GeofenceDTO>()
+    for (const g of geofences) m.set(g.id, g)
+    return m
+  }, [geofences])
+
+  const showZones = showOverlays && geofences.length > 0
+  const showEventMarkers = showOverlays && events.length > 0
 
   return (
     <MapContainer
@@ -523,12 +591,26 @@ function HistoryMap({
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
 
+      {/* Faded geofence zones — historical context, not the focus */}
+      {showZones ? <GeofenceOverlayLayer geofences={geofences} /> : null}
+
       {positions.length > 1 ? (
         <Polyline
           positions={positions}
           pathOptions={{ color, weight: 4, opacity: 0.7, lineCap: "round" }}
         />
       ) : null}
+
+      {/* Event markers — small icon-shaped circle at the event's lat/lon */}
+      {showEventMarkers
+        ? events.map((evt, i) => (
+            <HistoryEventMarker
+              key={`${evt.time}-${evt.geofenceId}-${evt.type}-${i}`}
+              event={evt}
+              geofence={geofenceById.get(evt.geofenceId)}
+            />
+          ))
+        : null}
 
       {start ? (
         <CircleMarker
@@ -578,7 +660,132 @@ function HistoryMap({
       ) : null}
 
       <FitToPath positions={positions} />
+
+      <HistoryOverlayLegend
+        eventCount={events.length}
+        zoneCount={geofences.length}
+        showOverlays={showOverlays}
+        onToggleOverlays={onToggleOverlays}
+      />
     </MapContainer>
+  )
+}
+
+function HistoryEventMarker({
+  event,
+  geofence,
+}: {
+  event: GeofenceEventDTO
+  geofence: GeofenceDTO | undefined
+}) {
+  const pres = presentationFor(event.type)
+  // Tailwind colors are class-based; for leaflet we need raw hex. Map
+  // the four event types to their accent hex directly.
+  const TONE_HEX: Record<typeof event.type, string> = {
+    enter: "#10b981",
+    exit: "#f59e0b",
+    approach: "#0ea5e9",
+    dwell: "#8b5cf6",
+  }
+  const tone = TONE_HEX[event.type] ?? "#737373"
+  const time = new Date(event.time).toLocaleString(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+    day: "numeric",
+    month: "short",
+  })
+
+  return (
+    <CircleMarker
+      center={[event.latitude, event.longitude]}
+      radius={5}
+      pathOptions={{
+        color: "#0a0a0a",
+        weight: 1.5,
+        fillColor: tone,
+        fillOpacity: 0.95,
+      }}
+    >
+      <Tooltip
+        direction="top"
+        offset={L.point(0, -8)}
+        opacity={1}
+        className="!rounded-none !border !border-border !bg-background !text-foreground !shadow-none"
+      >
+        <div className="flex flex-col gap-0.5 px-1 py-0.5 text-[11px]">
+          <div className="flex items-center gap-1.5">
+            <span
+              aria-hidden
+              className="size-2 ring-1 ring-foreground/15"
+              style={{ backgroundColor: tone }}
+            />
+            <span className="font-mono text-[10px] uppercase tracking-[0.16em]">
+              {pres.label}
+            </span>
+            <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
+              {time}
+            </span>
+          </div>
+          {geofence ? (
+            <span className="text-[11px] font-medium">→ {geofence.name}</span>
+          ) : (
+            <span className="text-[11px] text-muted-foreground">→ Geofence</span>
+          )}
+        </div>
+      </Tooltip>
+    </CircleMarker>
+  )
+}
+
+function HistoryOverlayLegend({
+  eventCount,
+  zoneCount,
+  showOverlays,
+  onToggleOverlays,
+}: {
+  eventCount: number
+  zoneCount: number
+  showOverlays: boolean
+  onToggleOverlays: () => void
+}) {
+  if (eventCount === 0 && zoneCount === 0) return null
+
+  return (
+    <div className="leaflet-bottom leaflet-left">
+      <div className="leaflet-control pointer-events-auto m-3 flex items-center gap-2 border bg-background/95 px-2.5 py-1.5 ring-1 ring-foreground/10 backdrop-blur">
+        <button
+          type="button"
+          onClick={onToggleOverlays}
+          aria-pressed={showOverlays}
+          title={
+            showOverlays ? "Hide geofence overlays" : "Show geofence overlays"
+          }
+          className={cn(
+            "flex items-center gap-1.5 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em] transition-colors",
+            showOverlays
+              ? "text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          {showOverlays ? (
+            <IconShape className="size-3" />
+          ) : (
+            <IconEyeOff className="size-3" />
+          )}
+          {showOverlays ? "Overlays on" : "Overlays off"}
+        </button>
+        <span className="h-3 w-px bg-border" />
+        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+          <IconWaveSawTool className="mr-1 inline size-3" />
+          {eventCount} event{eventCount === 1 ? "" : "s"}
+        </span>
+        {zoneCount > 0 ? (
+          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+            · {zoneCount} zone{zoneCount === 1 ? "" : "s"}
+          </span>
+        ) : null}
+      </div>
+    </div>
   )
 }
 
