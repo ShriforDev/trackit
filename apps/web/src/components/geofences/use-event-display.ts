@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 
 import { ApiError } from "@/lib/api"
-import { useFleet } from "@/lib/use-fleet"
+import { useFleet, useGeofences } from "@/lib/fleet-stream"
 import { geofencesApi } from "@/lib/geofences-client"
 
 import { DEVICE_COLORS } from "@trackit/shared"
@@ -14,9 +14,11 @@ import {
 import type { EventRowDevice, EventRowGeofence } from "./event-row"
 
 /**
- * Fetches and caches the org's geofences so events can be displayed
- * with name+color. Refreshes when the latest event references a
- * geofence we don't yet know about (newly-created geofence).
+ * Backwards-compatible wrapper around the central `useGeofences()` hook
+ * provided by FleetStreamProvider. Existing callers (events feed, live
+ * snapshot, notification bridge) keep their `{ byId, refresh, isLoading,
+ * error }` shape — but they now automatically reflect WS-driven updates
+ * because the underlying state lives in the provider.
  */
 export function useGeofencesIndex(): {
   byId: Map<string, GeofenceDTO>
@@ -24,15 +26,19 @@ export function useGeofencesIndex(): {
   isLoading: boolean
   error: string | null
 } {
-  const [list, setList] = useState<GeofenceDTO[] | null>(null)
+  const { geofences } = useGeofences()
   const [error, setError] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(geofences.size === 0)
 
-  async function load() {
+  // The provider already loaded a snapshot at session start. We expose
+  // a manual refresh as a no-op fallback for callers that still call it.
+  async function refresh() {
     setIsLoading(true)
     try {
-      const rows = await geofencesApi.list()
-      setList(rows)
+      // Trigger a fresh REST list — the provider doesn't currently
+      // accept a "manual reload" API, so we simply hit the endpoint
+      // again and let WS broadcasts keep things in sync afterwards.
+      await geofencesApi.list()
       setError(null)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Couldn't load geofences.")
@@ -41,17 +47,13 @@ export function useGeofencesIndex(): {
     }
   }
 
+  // First-load tracking: as soon as the provider has populated the map,
+  // mark loading as false. Subsequent renders are always non-loading.
   useEffect(() => {
-    void load()
-  }, [])
+    if (geofences.size > 0) setIsLoading(false)
+  }, [geofences])
 
-  const byId = useMemo(() => {
-    const m = new Map<string, GeofenceDTO>()
-    if (list) for (const g of list) m.set(g.id, g)
-    return m
-  }, [list])
-
-  return { byId, refresh: load, isLoading, error }
+  return { byId: geofences, refresh, isLoading, error }
 }
 
 function deviceColorHexFor(id: string | undefined): string | undefined {

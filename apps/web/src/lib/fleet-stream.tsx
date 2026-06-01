@@ -46,6 +46,12 @@ interface FleetStreamState {
    * to keep memory bounded. The /events feed handles older history.
    */
   events: GeofenceEventDTO[]
+  /**
+   * Live geofence definitions, keyed by id. Updated by REST snapshot at
+   * connect, plus WS deltas (`geofence:created`, `:updated`, `:shape_changed`,
+   * `:deleted`). Soft-deleted geofences are removed from the map.
+   */
+  geofences: Map<string, GeofenceDTO>
   status: FleetStatus
   error: string | null
   /**
@@ -96,6 +102,9 @@ export function FleetStreamProvider({ children }: { children: ReactNode }) {
     () => new Map()
   )
   const [events, setEvents] = useState<GeofenceEventDTO[]>([])
+  const [geofences, setGeofences] = useState<Map<string, GeofenceDTO>>(
+    () => new Map()
+  )
   const [unreadEventsCount, setUnreadCount] = useState(0)
   const [lastEventReceivedAt, setLastEventReceivedAt] = useState<number | null>(
     null
@@ -133,6 +142,7 @@ export function FleetStreamProvider({ children }: { children: ReactNode }) {
       setStatus("idle")
       setPositions(new Map())
       setEvents([])
+      setGeofences(new Map())
       setLatestEvent(null)
       setUnreadCount(0)
       return
@@ -156,6 +166,21 @@ export function FleetStreamProvider({ children }: { children: ReactNode }) {
         // Non-fatal — the WS will also send a snapshot on open.
         console.warn(
           "[fleet-stream] initial snapshot failed",
+          err instanceof Error ? err.message : err
+        )
+      }
+    }
+
+    async function loadInitialGeofences() {
+      try {
+        const rows = await api.get<GeofenceDTO[]>("/geofences")
+        if (cancelledRef.current) return
+        const next = new Map<string, GeofenceDTO>()
+        for (const g of rows) next.set(g.id, g)
+        setGeofences(next)
+      } catch (err) {
+        console.warn(
+          "[fleet-stream] geofence snapshot failed",
           err instanceof Error ? err.message : err
         )
       }
@@ -207,6 +232,26 @@ export function FleetStreamProvider({ children }: { children: ReactNode }) {
           setLatestEvent(evt)
           setLastEventReceivedAt(Date.now())
           setUnreadCount((n) => n + 1)
+        } else if (
+          (msg.type === "geofence:created" ||
+            msg.type === "geofence:updated" ||
+            msg.type === "geofence:shape_changed") &&
+          msg.geofence
+        ) {
+          const g = msg.geofence
+          setGeofences((prev) => {
+            const next = new Map(prev)
+            next.set(g.id, g)
+            return next
+          })
+        } else if (msg.type === "geofence:deleted" && msg.geofenceId) {
+          const id = msg.geofenceId
+          setGeofences((prev) => {
+            if (!prev.has(id)) return prev
+            const next = new Map(prev)
+            next.delete(id)
+            return next
+          })
         } else if (msg.type === "error") {
           setStatus("error")
           setError(msg.message ?? "stream error")
@@ -237,6 +282,7 @@ export function FleetStreamProvider({ children }: { children: ReactNode }) {
     }
 
     void loadInitialSnapshot()
+    void loadInitialGeofences()
     connect()
 
     return () => {
@@ -253,6 +299,7 @@ export function FleetStreamProvider({ children }: { children: ReactNode }) {
     () => ({
       positions,
       events,
+      geofences,
       status,
       error,
       unreadEventsCount,
@@ -263,6 +310,7 @@ export function FleetStreamProvider({ children }: { children: ReactNode }) {
     [
       positions,
       events,
+      geofences,
       status,
       error,
       unreadEventsCount,
@@ -304,6 +352,19 @@ export function useFleet(): {
 } {
   const { positions, status, error } = useFleetStreamContext()
   return { positions, status, error }
+}
+
+/**
+ * Live geofence definitions, kept synced via REST snapshot + WS deltas.
+ * Returns both the keyed map and an array view for convenience.
+ */
+export function useGeofences(): {
+  geofences: Map<string, GeofenceDTO>
+  list: GeofenceDTO[]
+} {
+  const { geofences } = useFleetStreamContext()
+  const list = useMemo(() => Array.from(geofences.values()), [geofences])
+  return { geofences, list }
 }
 
 /**

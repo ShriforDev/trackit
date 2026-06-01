@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import {
   CircleMarker,
   MapContainer,
@@ -12,16 +12,23 @@ import {
   IconArrowLeft,
   IconBolt,
   IconDeviceMobile,
+  IconEye,
+  IconEyeOff,
   IconMap,
+  IconShape,
 } from "@tabler/icons-react"
 import L from "leaflet"
 import "leaflet/dist/leaflet.css"
 
+import { GeofenceOverlayLayer } from "@/components/map/geofence-overlay-layer"
+import { MapNavControls } from "@/components/map/map-nav-controls"
 import { AppShell } from "@/components/layout/app-shell"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
 import { useFleet, type FleetStatus } from "@/lib/use-fleet"
+import { useGeofences } from "@/lib/fleet-stream"
+import { cn } from "@/lib/utils"
 
 import {
   DEVICE_COLORS,
@@ -86,12 +93,29 @@ function FitToFleet({ positions }: { positions: Map<string, FleetPosition> }) {
   return null
 }
 
+function MapInstanceCapture({ onReady }: { onReady: (m: L.Map) => void }) {
+  const map = useMap()
+  useEffect(() => {
+    onReady(map)
+  }, [map, onReady])
+  return null
+}
+
 export function MapPage() {
   const { positions, status, error } = useFleet()
+  const { list: geofencesList } = useGeofences()
+  const [showGeofences, setShowGeofences] = useState(true)
+  const [emphasizeActive, setEmphasizeActive] = useState(false)
+  const [mapInstance, setMapInstance] = useState<L.Map | null>(null)
 
   const positionList = useMemo(
     () => Array.from(positions.values()),
     [positions]
+  )
+
+  const insideTotal = useMemo(
+    () => geofencesList.reduce((acc, g) => acc + (g.insideCount ?? 0), 0),
+    [geofencesList]
   )
 
   return (
@@ -112,6 +136,16 @@ export function MapPage() {
           />
 
           <FitToFleet positions={positions} />
+          <MapInstanceCapture onReady={setMapInstance} />
+
+          {/* Geofence zones — render BEFORE device markers so dots stay
+              visually on top */}
+          {showGeofences ? (
+            <GeofenceOverlayLayer
+              geofences={geofencesList}
+              emphasizeActive={emphasizeActive}
+            />
+          ) : null}
 
           {positionList.map((p) => {
             const fill = colorHexFor(p.deviceColor as DeviceColorId)
@@ -173,8 +207,10 @@ export function MapPage() {
           })}
         </MapContainer>
 
-        {/* Status pill */}
-        <div className="pointer-events-none absolute right-4 top-4 z-10 flex flex-col items-end gap-2">
+        {mapInstance ? <MapNavControls map={mapInstance} /> : null}
+
+        {/* Status pill + filters */}
+        <div className="pointer-events-none absolute right-4 top-20 z-[440] flex flex-col items-end gap-2 lg:top-4">
           <div className="pointer-events-auto flex items-center gap-2 border bg-background/90 px-2.5 py-1.5 text-[11px] font-medium ring-1 ring-foreground/10 backdrop-blur">
             <span className={`size-1.5 rounded-full ${STATUS_TONE[status]}`} />
             <span>{STATUS_LABEL[status]}</span>
@@ -182,7 +218,46 @@ export function MapPage() {
             <span className="text-muted-foreground">
               {positions.size} device{positions.size === 1 ? "" : "s"}
             </span>
+            {geofencesList.length > 0 ? (
+              <>
+                <span className="text-muted-foreground">·</span>
+                <span className="text-muted-foreground">
+                  {geofencesList.length} zone{geofencesList.length === 1 ? "" : "s"}
+                  {insideTotal > 0 ? (
+                    <>
+                      {" · "}
+                      <span className="font-mono tabular-nums text-emerald-600 dark:text-emerald-400">
+                        {insideTotal} inside
+                      </span>
+                    </>
+                  ) : null}
+                </span>
+              </>
+            ) : null}
           </div>
+
+          {/* Filter chips */}
+          {geofencesList.length > 0 ? (
+            <div className="pointer-events-auto flex items-center gap-1 border bg-background/90 p-0.5 ring-1 ring-foreground/10 backdrop-blur">
+              <FilterChip
+                active={showGeofences}
+                onClick={() => setShowGeofences((v) => !v)}
+                Icon={showGeofences ? IconShape : IconEyeOff}
+                label={showGeofences ? "Zones on" : "Zones off"}
+                title="Toggle geofence overlays"
+              />
+              {showGeofences ? (
+                <FilterChip
+                  active={emphasizeActive}
+                  onClick={() => setEmphasizeActive((v) => !v)}
+                  Icon={emphasizeActive ? IconEye : IconEyeOff}
+                  label={emphasizeActive ? "Active only" : "All zones"}
+                  title="Dim zones with no devices inside"
+                />
+              ) : null}
+            </div>
+          ) : null}
+
           {error ? (
             <div className="pointer-events-auto flex items-center gap-2 border border-destructive/40 bg-destructive/10 px-2.5 py-1.5 text-[11px] text-destructive backdrop-blur">
               <IconAlertCircle className="size-3.5" />
@@ -252,5 +327,37 @@ export function MapPage() {
         ) : null}
       </div>
     </AppShell>
+  )
+}
+
+function FilterChip({
+  active,
+  onClick,
+  Icon,
+  label,
+  title,
+}: {
+  active: boolean
+  onClick: () => void
+  Icon: React.ComponentType<{ className?: string }>
+  label: string
+  title: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      aria-pressed={active}
+      className={cn(
+        "flex items-center gap-1.5 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.14em] transition-colors",
+        active
+          ? "bg-background text-foreground ring-1 ring-foreground/15"
+          : "text-muted-foreground hover:text-foreground"
+      )}
+    >
+      <Icon className="size-3" />
+      {label}
+    </button>
   )
 }
