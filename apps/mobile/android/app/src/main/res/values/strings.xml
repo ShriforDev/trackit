@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">trackit</string>
+    <string name="title_activity_main">trackit</string>
+    <string name="package_name">space.itsshri.trackit</string>
+    <string name="custom_url_scheme">space.itsshri.trackit</string>
+</resources>

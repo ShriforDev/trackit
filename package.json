@@ -15,7 +15,10 @@
     "infra:up": "docker compose up -d",
     "infra:down": "docker compose down",
     "infra:logs": "docker compose logs -f",
-    "infra:reset": "docker compose down -v"
+    "infra:reset": "docker compose down -v",
+    "mobile:sync": "bun run build:web && bun --filter @trackit/mobile sync",
+    "mobile:open:android": "bun --filter @trackit/mobile open:android",
+    "mobile:run:android": "bun run build:web && bun --filter @trackit/mobile run:android"
   },
   "devDependencies": {
     "prettier": "^3.8.1",
