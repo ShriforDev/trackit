@@ -11,6 +11,7 @@ import { eventRoutes } from "./routes/events"
 import { fleetRoutes } from "./routes/fleet"
 import { geofenceRoutes } from "./routes/geofences"
 import { invitationRoutes } from "./routes/invitations"
+import { mobileRoutes } from "./routes/mobile"
 import { closeTile38, tile38 } from "./tile38/client"
 import {
   fleetWebSocketHandlers,
@@ -103,6 +104,7 @@ app.route("/api/events", eventRoutes)
 app.route("/api/fleet", fleetRoutes)
 app.route("/api/geofences", geofenceRoutes)
 app.route("/api/invitations", invitationRoutes)
+app.route("/api/mobile", mobileRoutes)
 
 const port = Number(process.env.API_PORT ?? 3001)
 
