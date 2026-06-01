@@ -1,6 +1,8 @@
 import { Link } from "react-router"
 import {
   IconBolt,
+  IconBrandAndroid,
+  IconBrandApple,
   IconBuildingSkyscraper,
   IconCompass,
   IconHistory,
@@ -77,6 +79,27 @@ export function AuthLayout({
             isolated tenancy, live position streaming, and full historical route
             playback.
           </p>
+
+          {/* Download row — Android sideload link + iOS coming-soon. The
+              Android URL is a stable redirect served by the API; it 302s
+              to the latest signed APK on GitHub Releases. */}
+          <div className="flex flex-wrap items-center gap-2 pt-2">
+            <a
+              href="/api/mobile/android/latest.apk"
+              className="inline-flex items-center gap-2 border bg-background px-3 py-2 text-xs font-medium ring-1 ring-foreground/10 transition-colors hover:bg-accent"
+            >
+              <IconBrandAndroid className="size-4" />
+              Download for Android
+            </a>
+            <span
+              aria-disabled="true"
+              title="Coming soon"
+              className="inline-flex items-center gap-2 border border-dashed border-foreground/15 px-3 py-2 text-xs text-muted-foreground"
+            >
+              <IconBrandApple className="size-4" />
+              iOS — coming soon
+            </span>
+          </div>
         </div>
 
         <ul className="relative flex flex-col gap-3 text-xs text-muted-foreground">
@@ -87,6 +110,16 @@ export function AuthLayout({
             </li>
           ))}
         </ul>
+
+        <div className="relative flex items-center gap-3 pt-4 text-[11px] text-muted-foreground">
+          <Link to="/install" className="hover:text-foreground">
+            How to install
+          </Link>
+          <span aria-hidden>·</span>
+          <Link to="/privacy" className="hover:text-foreground">
+            Privacy
+          </Link>
+        </div>
       </aside>
 
       {/* ---------------- Form panel ---------------- */}

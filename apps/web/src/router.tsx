@@ -11,9 +11,11 @@ import { GeofenceDetailPage } from "@/routes/geofence-detail"
 import { GeofenceEditShapePage } from "@/routes/geofence-edit-shape"
 import { GeofenceNewPage } from "@/routes/geofence-new"
 import { GeofencesPage } from "@/routes/geofences"
+import { InstallPage } from "@/routes/install"
 import { InvitationPage } from "@/routes/invitation"
 import { LoginPage } from "@/routes/login"
 import { MapPage } from "@/routes/map"
+import { PrivacyPage } from "@/routes/privacy"
 import { SignupPage } from "@/routes/signup"
 import { TeamPage } from "@/routes/team"
 
@@ -159,6 +161,10 @@ export const router = createBrowserRouter([
       </RedirectIfAuth>
     ),
   },
+  // Public, unauthenticated. Reachable from auth layout footer + APK
+  // distribution metadata.
+  { path: "/privacy", element: <PrivacyPage /> },
+  { path: "/install", element: <InstallPage /> },
   // Catch-all: bounce unknown URLs to /.
   { path: "*", element: <Navigate to="/" replace /> },
 ])
