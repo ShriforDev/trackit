@@ -1,21 +1,21 @@
 import { useEffect, useMemo, useState } from "react"
 import { Link } from "react-router"
-import { toast } from "sonner"
 import {
   IconAlertCircle,
   IconBroadcast,
   IconCircle,
   IconList,
-  IconLock,
   IconPolygon,
   IconRefresh,
   IconShape,
   IconShieldLock,
-  IconTrash,
   IconWaveSawTool,
 } from "@tabler/icons-react"
 
+import { DeleteDialog } from "@/components/geofences/delete-dialog"
+import { EditSettingsDialog } from "@/components/geofences/edit-settings-dialog"
 import { EventsFeed } from "@/components/geofences/events-feed"
+import { GeofenceMenu } from "@/components/geofences/geofence-menu"
 import { LiveSnapshot } from "@/components/geofences/live-snapshot"
 import { NotificationsToggle } from "@/components/geofences/notifications-toggle"
 import { AppShell } from "@/components/layout/app-shell"
@@ -74,10 +74,12 @@ function CountChip({ label, value }: { label: string; value: number }) {
 function GeofenceCard({
   geofence,
   isAdmin,
+  onEditSettings,
   onDelete,
 }: {
   geofence: GeofenceDTO
   isAdmin: boolean
+  onEditSettings: () => void
   onDelete: () => void
 }) {
   const ShapeIcon = isCircleShape(geofence.shape) ? IconCircle : IconPolygon
@@ -100,8 +102,13 @@ function GeofenceCard({
       />
 
       <header className="flex items-start gap-3">
-        <GeofenceSwatch color={geofence.color} size="lg" />
-        <div className="min-w-0 flex-1">
+        <Link to={`/geofences/${geofence.id}`} className="shrink-0">
+          <GeofenceSwatch color={geofence.color} size="lg" />
+        </Link>
+        <Link
+          to={`/geofences/${geofence.id}`}
+          className="min-w-0 flex-1 transition-opacity group-hover:opacity-90"
+        >
           <h3 className="truncate text-sm font-medium leading-tight">
             {geofence.name}
           </h3>
@@ -109,67 +116,59 @@ function GeofenceCard({
             <ShapeIcon className="size-3" />
             {shapeMeta}
           </p>
-        </div>
+        </Link>
+        <GeofenceMenu
+          geofence={geofence}
+          isAdmin={isAdmin}
+          onEditSettings={onEditSettings}
+          onDelete={onDelete}
+        />
+      </header>
+
+      <Link to={`/geofences/${geofence.id}`} className="contents">
+        <dl className="grid grid-cols-3 gap-2 border-t pt-3 text-[11px]">
+          <div className="flex flex-col gap-0.5">
+            <dt className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">
+              Inside
+            </dt>
+            <dd
+              className={cn(
+                "font-mono text-base font-medium tabular-nums",
+                insideCount > 0 ? "text-emerald-600 dark:text-emerald-400" : ""
+              )}
+            >
+              {insideCount}
+            </dd>
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <dt className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">
+              Proximity
+            </dt>
+            <dd className="font-mono text-base font-medium tabular-nums">
+              {hasProximity ? formatRadius(geofence.proximityBufferM) : "—"}
+            </dd>
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <dt className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">
+              Dwell
+            </dt>
+            <dd className="font-mono text-base font-medium tabular-nums">
+              {hasDwell ? `${geofence.dwellThresholdMin}m` : "—"}
+            </dd>
+          </div>
+        </dl>
+      </Link>
+
+      <footer className="flex items-center justify-between border-t pt-2.5 text-[10px] text-muted-foreground">
+        <span className="font-mono uppercase tracking-[0.14em]">
+          rev {geofence.shapeRevision} · {formatRelative(geofence.updatedAt)}
+        </span>
         <Link
           to={`/geofences/${geofence.id}`}
           className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground hover:text-foreground"
         >
           Open →
         </Link>
-      </header>
-
-      <dl className="grid grid-cols-3 gap-2 border-t pt-3 text-[11px]">
-        <div className="flex flex-col gap-0.5">
-          <dt className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">
-            Inside
-          </dt>
-          <dd
-            className={cn(
-              "font-mono text-base font-medium tabular-nums",
-              insideCount > 0 ? "text-emerald-600 dark:text-emerald-400" : ""
-            )}
-          >
-            {insideCount}
-          </dd>
-        </div>
-        <div className="flex flex-col gap-0.5">
-          <dt className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">
-            Proximity
-          </dt>
-          <dd className="font-mono text-base font-medium tabular-nums">
-            {hasProximity ? formatRadius(geofence.proximityBufferM) : "—"}
-          </dd>
-        </div>
-        <div className="flex flex-col gap-0.5">
-          <dt className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">
-            Dwell
-          </dt>
-          <dd className="font-mono text-base font-medium tabular-nums">
-            {hasDwell ? `${geofence.dwellThresholdMin}m` : "—"}
-          </dd>
-        </div>
-      </dl>
-
-      <footer className="flex items-center justify-between border-t pt-2.5 text-[10px] text-muted-foreground">
-        <span className="font-mono uppercase tracking-[0.14em]">
-          rev {geofence.shapeRevision} · {formatRelative(geofence.updatedAt)}
-        </span>
-        {isAdmin ? (
-          <button
-            type="button"
-            onClick={onDelete}
-            className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground transition-colors hover:text-destructive"
-            aria-label={`Delete ${geofence.name}`}
-          >
-            <IconTrash className="size-3" />
-            Delete
-          </button>
-        ) : (
-          <span className="flex items-center gap-1 text-[10px] uppercase tracking-[0.14em] text-muted-foreground/60">
-            <IconLock className="size-3" />
-            Read-only
-          </span>
-        )}
       </footer>
     </article>
   )
@@ -220,7 +219,9 @@ export function GeofencesPage() {
   const [geofences, setGeofences] = useState<GeofenceDTO[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  const [editTarget, setEditTarget] = useState<GeofenceDTO | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<GeofenceDTO | null>(null)
 
   const myMembership = activeOrg?.members?.find(
     (m) => m.userId === session?.user.id
@@ -255,20 +256,14 @@ export function GeofencesPage() {
     }
   }, [tab, clearUnreadEvents])
 
-  async function onDelete(id: string, name: string) {
-    if (!confirm(`Delete "${name}"? Past events stay attached to it.`)) return
-    setDeletingId(id)
-    try {
-      await geofencesApi.delete(id)
-      setGeofences((prev) => prev?.filter((g) => g.id !== id) ?? null)
-      toast.success(`Deleted ${name}.`)
-    } catch (err) {
-      toast.error(
-        err instanceof ApiError ? err.message : "Couldn't delete geofence."
-      )
-    } finally {
-      setDeletingId(null)
-    }
+  function onDeleted(deletedId: string) {
+    setGeofences((prev) => prev?.filter((g) => g.id !== deletedId) ?? null)
+  }
+
+  function onUpdated(next: GeofenceDTO) {
+    setGeofences((prev) =>
+      prev?.map((g) => (g.id === next.id ? next : g)) ?? null
+    )
   }
 
   const totalCount = geofences?.length ?? 0
@@ -357,7 +352,8 @@ export function GeofencesPage() {
             geofences={geofences}
             loadError={loadError}
             isAdmin={isAdmin}
-            onDelete={onDelete}
+            onEditSettings={(g) => setEditTarget(g)}
+            onDelete={(g) => setDeleteTarget(g)}
           />
         ) : null}
 
@@ -366,13 +362,22 @@ export function GeofencesPage() {
         {tab === "live" ? <LiveSnapshot /> : null}
       </div>
 
-      {deletingId ? (
-        <div className="pointer-events-none fixed inset-x-0 bottom-6 z-40 flex justify-center">
-          <div className="pointer-events-auto flex items-center gap-2 border bg-background px-4 py-2 text-xs ring-1 ring-foreground/10">
-            <span className="size-2 animate-pulse rounded-full bg-amber-500" />
-            Deleting…
-          </div>
-        </div>
+      {editTarget ? (
+        <EditSettingsDialog
+          open={editTarget !== null}
+          onClose={() => setEditTarget(null)}
+          geofence={editTarget}
+          onUpdated={onUpdated}
+        />
+      ) : null}
+
+      {deleteTarget ? (
+        <DeleteDialog
+          open={deleteTarget !== null}
+          onClose={() => setDeleteTarget(null)}
+          geofence={deleteTarget}
+          onDeleted={onDeleted}
+        />
       ) : null}
     </AppShell>
   )
@@ -382,12 +387,14 @@ function ListTab({
   geofences,
   loadError,
   isAdmin,
+  onEditSettings,
   onDelete,
 }: {
   geofences: GeofenceDTO[] | null
   loadError: string | null
   isAdmin: boolean
-  onDelete: (id: string, name: string) => void
+  onEditSettings: (g: GeofenceDTO) => void
+  onDelete: (g: GeofenceDTO) => void
 }) {
   return (
     <>
@@ -438,7 +445,8 @@ function ListTab({
               key={g.id}
               geofence={g}
               isAdmin={isAdmin}
-              onDelete={() => void onDelete(g.id, g.name)}
+              onEditSettings={() => onEditSettings(g)}
+              onDelete={() => onDelete(g)}
             />
           ))}
         </div>

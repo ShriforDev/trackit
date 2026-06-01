@@ -7,6 +7,7 @@ import { DeviceDetailPage } from "@/routes/device-detail"
 import { DeviceHistoryPage } from "@/routes/device-history"
 import { DeviceNewPage } from "@/routes/device-new"
 import { DevicesPage } from "@/routes/devices"
+import { GeofenceDetailPage } from "@/routes/geofence-detail"
 import { GeofenceNewPage } from "@/routes/geofence-new"
 import { GeofencesPage } from "@/routes/geofences"
 import { InvitationPage } from "@/routes/invitation"
@@ -102,6 +103,16 @@ export const router = createBrowserRouter([
       <RequireAuth>
         <RequireConsent>
           <GeofenceNewPage />
+        </RequireConsent>
+      </RequireAuth>
+    ),
+  },
+  {
+    path: "/geofences/:id",
+    element: (
+      <RequireAuth>
+        <RequireConsent>
+          <GeofenceDetailPage />
         </RequireConsent>
       </RequireAuth>
     ),
