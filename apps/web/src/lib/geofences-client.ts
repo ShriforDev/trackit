@@ -2,6 +2,7 @@ import type {
   CreateGeofenceInput,
   GeofenceDTO,
   GeofenceEventDTO,
+  GeofenceShape,
   UpdateGeofenceInput,
   UpdateGeofenceShapeInput,
 } from "@trackit/shared/geofence"
@@ -14,6 +15,14 @@ import { api } from "./api"
  * that surface ApiError on non-2xx responses.
  */
 
+export interface ShapeVersionDTO {
+  id: string
+  revision: number
+  shape: GeofenceShape
+  editedBy: string
+  createdAt: string
+}
+
 export const geofencesApi = {
   list: () => api.get<GeofenceDTO[]>("/geofences"),
   get: (id: string) => api.get<GeofenceDTO>(`/geofences/${id}`),
@@ -25,6 +34,8 @@ export const geofencesApi = {
     api.post<GeofenceDTO>(`/geofences/${id}/shape`, input),
   delete: (id: string) =>
     api.delete<{ ok: true }>(`/geofences/${id}`),
+  shapeVersions: (id: string) =>
+    api.get<ShapeVersionDTO[]>(`/geofences/${id}/shape-versions`),
 }
 
 /**

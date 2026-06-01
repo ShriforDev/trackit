@@ -5,6 +5,7 @@ import {
   IconArrowLeft,
   IconBroadcast,
   IconCircle,
+  IconHistory,
   IconPolygon,
   IconRefresh,
   IconSettings,
@@ -20,6 +21,7 @@ import { EventsFeed } from "@/components/geofences/events-feed"
 import { GeofenceDetailMap } from "@/components/geofences/geofence-detail-map"
 import { GeofenceMenu } from "@/components/geofences/geofence-menu"
 import { LiveSnapshot } from "@/components/geofences/live-snapshot"
+import { ShapeVersionsList } from "@/components/geofences/shape-versions-list"
 import { AppShell } from "@/components/layout/app-shell"
 import { Button } from "@/components/ui/button"
 import { GeofenceSwatch } from "@/components/ui/geofence-swatch"
@@ -38,7 +40,7 @@ import {
 } from "@trackit/shared/geofence"
 import type { Role } from "@trackit/shared/permissions"
 
-type DetailTab = "live" | "events"
+type DetailTab = "live" | "events" | "versions"
 
 function formatRadius(m: number): string {
   if (m >= 1000) return `${(m / 1000).toFixed(m % 1000 === 0 ? 0 : 1)} km`
@@ -376,10 +378,22 @@ export function GeofenceDetailPage() {
             icon={IconWaveSawTool}
             label="Events"
           />
+          <TabButton
+            active={tab === "versions"}
+            onClick={() => setTab("versions")}
+            icon={IconHistory}
+            label="Versions"
+          />
         </div>
 
         {tab === "live" ? <ScopedLiveSnapshot geofenceId={geofence.id} /> : null}
         {tab === "events" ? <EventsFeed geofenceId={geofence.id} /> : null}
+        {tab === "versions" ? (
+          <ShapeVersionsList
+            geofenceId={geofence.id}
+            currentRevision={geofence.shapeRevision}
+          />
+        ) : null}
       </div>
 
       {/* Dialogs */}
