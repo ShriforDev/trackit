@@ -134,6 +134,44 @@ export function AuthLayout({
           </Link>
         </div>
 
+        {/* Mobile-only download section. The brand panel (where the
+            download CTA also lives) is hidden below lg, so we surface
+            the same links here for phone visitors — otherwise there's
+            no way to reach the APK from a phone. */}
+        <div className="border-b bg-muted/30 px-6 py-5 lg:hidden">
+          <div className="flex flex-col gap-3">
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              Get the trackit app for live tracking and background fixes.
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <a
+                href="/api/mobile/android/latest.apk"
+                className="inline-flex items-center gap-2 border bg-background px-3 py-2 text-xs font-medium ring-1 ring-foreground/10 transition-colors hover:bg-accent"
+              >
+                <IconBrandAndroid className="size-4" />
+                Download for Android
+              </a>
+              <span
+                aria-disabled="true"
+                title="Coming soon"
+                className="inline-flex items-center gap-2 border border-dashed border-foreground/15 px-3 py-2 text-xs text-muted-foreground"
+              >
+                <IconBrandApple className="size-4" />
+                iOS — coming soon
+              </span>
+            </div>
+            <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+              <Link to="/install" className="hover:text-foreground">
+                How to install
+              </Link>
+              <span aria-hidden>·</span>
+              <Link to="/privacy" className="hover:text-foreground">
+                Privacy
+              </Link>
+            </div>
+          </div>
+        </div>
+
         <div className="flex flex-1 items-center justify-center px-6 py-12 sm:px-10 lg:py-10">
           <div className="flex w-full max-w-sm flex-col gap-8">
             <div className="flex flex-col gap-1.5">
